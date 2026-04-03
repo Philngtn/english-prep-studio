@@ -1,0 +1,19 @@
+Resources/myenv/
+Resources/Cam18/Cam18.pdf
+
+# Database schema — keep local only
+schema.sql
+
+# Claude Code internal files
+CLAUDE.md
+.claude/
+
+# IDE config
+.vscode/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.secret
+credentials.*

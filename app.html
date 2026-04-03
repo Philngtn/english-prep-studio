@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Learn With Trang — IELTS Practice Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/mock-test.css" />
+  <link rel="stylesheet" href="css/practice.css" />
+  <link rel="stylesheet" href="css/review.css" />
+  <link rel="stylesheet" href="css/admin.css" />
+  <link rel="stylesheet" href="css/live-quiz.css" />
+</head>
+<body>
+
+  <!-- ===== NAVIGATION ===== -->
+  <nav class="navbar">
+    <a class="nav-brand" href="index.html">
+      <img src="Logo.png" alt="Learn With Trang" class="brand-logo-img">
+      <span class="brand-name">Learn With Trang</span>
+    </a>
+    <ul class="nav-tabs" id="navTabs">
+      <li><button class="nav-btn active" data-tab="dashboard">Dashboard</button></li>
+      <li><button class="nav-btn" data-tab="mock-test">Mock Test</button></li>
+      <li><button class="nav-btn" data-tab="practice">Practice</button></li>
+      <li><button class="nav-btn" data-tab="review">Review</button></li>
+      <li><button class="nav-btn" data-tab="live-quiz">&#9889; Live Quiz</button></li>
+      <li><button class="nav-btn nav-btn-admin" data-tab="admin">&#9881; Admin</button></li>
+    </ul>
+    <button class="nav-btn nav-btn-auth" id="authNavBtn" onclick="openAuthModal()">Login</button>
+    <button class="nav-hamburger" id="hamburgerBtn" aria-label="Menu">&#9776;</button>
+  </nav>
+
+  <!-- ===== STUDENT AUTH MODAL ===== -->
+  <div class="auth-modal-overlay" id="authModal" style="display:none;">
+    <div class="auth-modal-box">
+      <button class="auth-modal-close" onclick="closeAuthModal()">&#10005;</button>
+      <img src="Logo.png" alt="Learn With Trang" class="admin-login-logo">
+      <h2>Student Account</h2>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="authTabLogin"    onclick="switchAuthTab('login')">Sign In</button>
+        <button class="auth-tab"        id="authTabRegister" onclick="switchAuthTab('register')">Register</button>
+      </div>
+      <!-- Google sign-in (works for both login & register) -->
+      <button class="btn-google" onclick="doGoogleLogin()">
+        <svg width="18" height="18" viewBox="0 0 48 48" style="flex-shrink:0"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="auth-divider"><span>or</span></div>
+
+      <p class="auth-err" id="authErr"></p>
+
+      <!-- Login pane -->
+      <div id="authPaneLogin">
+        <input type="email"    id="authLoginEmail" class="admin-input" placeholder="Email" style="width:100%;margin-bottom:.5rem;">
+        <input type="password" id="authLoginPwd"   class="admin-input" placeholder="Password" style="width:100%;margin-bottom:.75rem;">
+        <button class="btn btn-primary" id="authLoginBtn" onclick="doStudentLogin()" style="width:100%;">Sign In</button>
+      </div>
+
+      <!-- Register pane -->
+      <div id="authPaneRegister" style="display:none;">
+        <input type="text"     id="authRegName"  class="admin-input" placeholder="Full name"       style="width:100%;margin-bottom:.5rem;">
+        <input type="email"    id="authRegEmail" class="admin-input" placeholder="Email"            style="width:100%;margin-bottom:.5rem;">
+        <input type="password" id="authRegPwd"   class="admin-input" placeholder="Password (min 6)" style="width:100%;margin-bottom:.5rem;">
+        <input type="password" id="authRegPwd2"  class="admin-input" placeholder="Confirm password" style="width:100%;margin-bottom:.75rem;">
+        <button class="btn btn-primary" id="authRegBtn" onclick="doStudentRegister()" style="width:100%;">Create Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="main-content">
+
+    <!-- ==================== DASHBOARD TAB ==================== -->
+    <section class="tab-content active" id="tab-dashboard">
+      <div class="container">
+        <div class="hero-banner">
+          <div class="hero-text">
+            <h1>Welcome to Learn With Trang</h1>
+            <p>Your complete IELTS preparation platform. Practice all four skills, take full mock tests, and track your progress toward your target band score.</p>
+          </div>
+          <div class="hero-score-display" id="heroScore">
+            <div class="score-ring">
+              <span class="score-number" id="dashAvgBand">--</span>
+              <span class="score-label">Avg Band</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="stats-header-row">
+          <span class="section-stats-label">Your Stats</span>
+          <button class="btn btn-sm btn-danger" onclick="confirmResetAllData()">&#128465; Reset All Data</button>
+        </div>
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-icon">&#128196;</div>
+            <div class="stat-info">
+              <span class="stat-value" id="statTotalTests">0</span>
+              <span class="stat-label">Tests Taken</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">&#9201;</div>
+            <div class="stat-info">
+              <span class="stat-value" id="statTotalTime">0h</span>
+              <span class="stat-label">Practice Time</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">&#127942;</div>
+            <div class="stat-info">
+              <span class="stat-value" id="statBestBand">--</span>
+              <span class="stat-label">Best Band</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">&#128197;</div>
+            <div class="stat-info">
+              <span class="stat-value" id="statLastDate">Never</span>
+              <span class="stat-label">Last Test</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skill Progress -->
+        <div class="section-header">
+          <h2>Skill Progress</h2>
+          <span class="section-subtitle">Based on your recent test results</span>
+        </div>
+        <div class="progress-grid" id="progressGrid">
+          <div class="progress-card">
+            <div class="progress-header">
+              <span class="skill-label">Reading</span>
+              <span class="skill-band" id="readingBand">--</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar" id="readingBar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="progress-card">
+            <div class="progress-header">
+              <span class="skill-label">Listening</span>
+              <span class="skill-band" id="listeningBand">--</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar listening" id="listeningBar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="progress-card">
+            <div class="progress-header">
+              <span class="skill-label">Writing</span>
+              <span class="skill-band" id="writingBand">--</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar writing" id="writingBar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="progress-card">
+            <div class="progress-header">
+              <span class="skill-label">Speaking</span>
+              <span class="skill-band" id="speakingBand">--</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar speaking" id="speakingBar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Start -->
+        <div class="section-header">
+          <h2>Quick Start</h2>
+        </div>
+        <div class="quickstart-grid">
+          <button class="quickstart-btn reading-btn" onclick="startTestSection('reading')">
+            <span class="qs-icon">&#128214;</span>
+            <span class="qs-title">Reading Test</span>
+            <span class="qs-desc">60 min &bull; 40 questions</span>
+          </button>
+          <button class="quickstart-btn listening-btn" onclick="startTestSection('listening')">
+            <span class="qs-icon">&#127911;</span>
+            <span class="qs-title">Listening Test</span>
+            <span class="qs-desc">30 min &bull; 40 questions</span>
+          </button>
+          <button class="quickstart-btn writing-btn" onclick="startTestSection('writing')">
+            <span class="qs-icon">&#9999;</span>
+            <span class="qs-title">Writing Test</span>
+            <span class="qs-desc">60 min &bull; 2 tasks</span>
+          </button>
+          <button class="quickstart-btn speaking-btn" onclick="startTestSection('speaking')">
+            <span class="qs-icon">&#127908;</span>
+            <span class="qs-title">Speaking Test</span>
+            <span class="qs-desc">11-14 min &bull; 3 parts</span>
+          </button>
+          <button class="quickstart-btn fulltest-btn" onclick="startTestSection('full')">
+            <span class="qs-icon">&#127959;</span>
+            <span class="qs-title">Full Mock Test</span>
+            <span class="qs-desc">All sections &bull; ~3 hours</span>
+          </button>
+        </div>
+
+        <!-- Recent Scores -->
+        <div class="section-header">
+          <h2>Recent Tests</h2>
+        </div>
+        <div id="recentTestsList">
+          <div class="empty-state">
+            <p>No tests taken yet. Start a mock test to see your results here!</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== MOCK TEST TAB ==================== -->
+    <section class="tab-content" id="tab-mock-test">
+      <div class="container">
+
+        <!-- Section Selector (shown before test starts) -->
+        <div id="testSelectorPage">
+          <div class="page-header">
+            <h2>Mock Test</h2>
+            <p>Choose a section to begin your timed practice test</p>
+          </div>
+          <!-- Test picker (populated dynamically from TEST_PACKAGES) -->
+          <div class="test-picker-row">
+            <label class="test-picker-label" for="packagePicker">Package:</label>
+            <select id="packagePicker" class="test-picker-select" onchange="setActivePackage(this.value)"></select>
+            <label class="test-picker-label" for="testPicker">Test:</label>
+            <select id="testPicker" class="test-picker-select" onchange="setActiveTest(this.value)"></select>
+          </div>
+
+          <div class="timer-toggle-row">
+            <label class="timer-toggle-label">
+              <span class="timer-toggle-text">
+                <span class="timer-toggle-title">Countdown Timer</span>
+                <span class="timer-toggle-desc" id="timerToggleDesc">Timer counts down — test auto-submits when time is up</span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="timerCountdownToggle" checked onchange="setTimerMode(this.checked)">
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="test-selector-grid">
+            <div class="test-section-card" onclick="startTestSection('reading')">
+              <div class="tsc-icon reading-icon">&#128214;</div>
+              <h3>Reading</h3>
+              <p>3 passages &bull; 40 questions</p>
+              <p class="tsc-time">&#9201; 60 minutes</p>
+              <button class="btn btn-primary">Start Reading</button>
+            </div>
+            <div class="test-section-card" onclick="startTestSection('listening')">
+              <div class="tsc-icon listening-icon">&#127911;</div>
+              <h3>Listening</h3>
+              <p>4 sections &bull; 40 questions</p>
+              <p class="tsc-time">&#9201; 30 minutes</p>
+              <button class="btn btn-success">Start Listening</button>
+            </div>
+            <div class="test-section-card" onclick="startTestSection('writing')">
+              <div class="tsc-icon writing-icon">&#9999;</div>
+              <h3>Writing</h3>
+              <p>Task 1 &amp; Task 2</p>
+              <p class="tsc-time">&#9201; 60 minutes</p>
+              <button class="btn btn-warning">Start Writing</button>
+            </div>
+            <div class="test-section-card" onclick="startTestSection('speaking')">
+              <div class="tsc-icon speaking-icon">&#127908;</div>
+              <h3>Speaking</h3>
+              <p>3 parts &bull; cue card</p>
+              <p class="tsc-time">&#9201; 11-14 minutes</p>
+              <button class="btn btn-danger">Start Speaking</button>
+            </div>
+            <div class="test-section-card full-card" onclick="startTestSection('full')">
+              <div class="tsc-icon full-icon">&#127959;</div>
+              <h3>Full Mock Test</h3>
+              <p>All 4 sections in sequence</p>
+              <p class="tsc-time">&#9201; ~3 hours</p>
+              <button class="btn btn-primary">Start Full Test</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Test Interface (shown during test) -->
+        <div id="testInterface" style="display:none;">
+          <!-- Timer Bar -->
+          <div class="test-timer-bar" id="testTimerBar">
+            <div class="timer-left">
+              <span class="timer-section-name" id="timerSectionName">Reading</span>
+              <span class="timer-separator">|</span>
+              <span class="timer-qcount" id="timerQCount">Question 1 of 40</span>
+            </div>
+            <div class="timer-display" id="timerDisplay">60:00</div>
+            <div class="timer-right">
+              <button class="btn btn-sm btn-flag" id="flagBtn" onclick="toggleFlag()">&#9873; Flag</button>
+              <button class="btn btn-sm btn-danger" onclick="confirmSubmit()">Submit</button>
+            </div>
+          </div>
+
+          <!-- Persistent listening audio bar (shown during listening tests) -->
+          <div class="listening-player-bar" id="listeningPlayerBar" style="display:none;">
+            <div class="lpb-section-label" id="lpbSectionLabel"></div>
+            <div class="lpb-player" id="lpbPlayer"></div>
+          </div>
+
+          <!-- Reading: two-column split (passage left, questions right) -->
+          <div class="reading-split" id="readingSplit" style="display:none;">
+            <div class="reading-passage-pane" id="readingPassagePane"></div>
+            <div class="reading-questions-pane" id="readingQuestionsPane"></div>
+          </div>
+
+          <!-- Non-reading: single column test body -->
+          <div class="test-body" id="testBody"></div>
+
+          <!-- Navigation Buttons -->
+          <div class="test-nav-buttons">
+            <button class="btn btn-outline" id="prevBtn" onclick="navigateQuestion(-1)">&#8592; Previous</button>
+            <button class="btn btn-primary" id="nextBtn" onclick="navigateQuestion(1)">Next &#8594;</button>
+          </div>
+
+          <!-- Question Navigator (bottom) -->
+          <div class="q-navigator" id="qNavigator"></div>
+        </div>
+
+        <!-- Results Page -->
+        <div id="testResultsPage" style="display:none;"></div>
+
+      </div>
+    </section>
+
+    <!-- ==================== PRACTICE TAB ==================== -->
+    <section class="tab-content" id="tab-practice">
+      <div class="container">
+        <div class="page-header">
+          <h2>Practice</h2>
+          <p>Strengthen specific skills with targeted exercises</p>
+        </div>
+
+        <!-- Practice Package Picker -->
+        <div id="practicePkgPicker"></div>
+
+        <!-- Practice Sub-Tabs -->
+        <div class="practice-tabs">
+          <button class="practice-tab-btn active" data-ptab="mini-quiz">Mini Quiz</button>
+          <button class="practice-tab-btn" data-ptab="vocab">Vocabulary</button>
+          <button class="practice-tab-btn" data-ptab="grammar">Grammar</button>
+          <button class="practice-tab-btn" data-ptab="reading-skills">Reading Skills</button>
+          <button class="practice-tab-btn" data-ptab="writing-tips">Writing Tips</button>
+        </div>
+
+        <!-- Vocabulary Tab -->
+        <div class="practice-content" id="ptab-vocab">
+          <div class="section-header">
+            <h3>IELTS Vocabulary Builder</h3>
+            <p id="vocabPkgDesc">Essential academic words for IELTS</p>
+          </div>
+          <div class="vocab-grid" id="vocabGrid"></div>
+          <div class="section-header" style="margin-top:2rem;">
+            <h3>Vocabulary Quiz</h3>
+            <p>Match each word to its correct definition</p>
+          </div>
+          <div id="vocabQuiz"></div>
+          <button class="btn btn-primary" onclick="checkVocabQuiz()" style="margin-top:1rem;">Check Answers</button>
+          <div id="vocabQuizResult" class="quiz-result"></div>
+        </div>
+
+        <!-- Grammar Tab -->
+        <div class="practice-content" id="ptab-grammar">
+          <div class="section-header">
+            <h3>Grammar for IELTS</h3>
+            <p>Master the key grammar structures tested in IELTS</p>
+          </div>
+          <div id="grammarContent"></div>
+        </div>
+
+        <!-- Reading Skills Tab -->
+        <div class="practice-content" id="ptab-reading-skills">
+          <div id="readingSkillsContent"></div>
+        </div>
+
+        <!-- Writing Tips Tab -->
+        <div class="practice-content" id="ptab-writing-tips">
+          <div id="writingTipsContent"></div>
+        </div>
+
+        <!-- Mini Quiz Tab -->
+        <div class="practice-content active" id="ptab-mini-quiz">
+          <div id="miniQuizContent"></div>
+          <div id="miniQuizNav" style="display:none;">
+            <button class="btn btn-outline" id="mqBackBtn" onclick="renderMiniQuiz()" style="display:none;">&#8592; All Quizzes</button>
+            <button class="btn btn-outline" id="mqPrevBtn" onclick="miniQuizNavigate(-1)">&#8592; Previous</button>
+            <button class="btn btn-primary" id="mqNextBtn" onclick="miniQuizNavigate(1)">Next &#8594;</button>
+            <button class="btn btn-success" id="mqSubmitBtn" onclick="submitMiniQuiz()" style="display:none;">Submit Quiz</button>
+          </div>
+          <div id="miniQuizResult" class="quiz-result" style="display:none;"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== REVIEW TAB ==================== -->
+    <section class="tab-content" id="tab-review">
+      <div class="container">
+        <div class="page-header">
+          <h2>Review</h2>
+          <p>Analyze your past performance and identify areas for improvement</p>
+        </div>
+
+        <!-- Sub-tabs -->
+        <div class="review-subtabs">
+          <button class="review-subtab active" id="reviewTabTests"    onclick="switchReviewTab('tests')">&#128202; Mock Tests</button>
+          <button class="review-subtab"         id="reviewTabPractice" onclick="switchReviewTab('practice')">&#128221; Practice</button>
+        </div>
+
+        <!-- Mock Tests pane -->
+        <div id="reviewPaneTests">
+          <div class="chart-section">
+            <h3>Score Trend</h3>
+            <canvas id="scoreTrendChart" width="800" height="200"></canvas>
+            <p class="chart-legend" id="chartLegend"></p>
+          </div>
+          <div class="section-header">
+            <h3>Test History</h3>
+            <button class="btn btn-sm btn-danger" onclick="clearAllHistory()">Clear All</button>
+          </div>
+          <div id="reviewHistoryList">
+            <div class="empty-state">
+              <p>No test history found. Complete a mock test to see detailed reviews here.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Practice pane -->
+        <div id="reviewPanePractice" style="display:none;">
+          <div id="reviewPracticeList">
+            <div class="empty-state"><p>Loading practice results…</p></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== ADMIN TAB ==================== -->
+    <section class="tab-content" id="tab-admin">
+      <!-- Global admin bar: mode tabs + actions, hidden until logged in -->
+      <div id="adminGlobalBar" style="display:none;">
+        <div class="admin-global-bar-inner container">
+          <div class="admin-mode-tabs" id="adminModeTabs">
+            <button class="admin-mode-tab active" id="adminTabTest"      onclick="adminSetMode('test')">&#9998; Test Editor</button>
+            <button class="admin-mode-tab"         id="adminTabPractice" onclick="adminSetMode('practice')">&#128218; Practice Editor</button>
+            <button class="admin-mode-tab"         id="adminTabStudents" onclick="adminSetMode('students')">&#128101; Students</button>
+          </div>
+          <div class="admin-bar-actions">
+            <button class="btn btn-sm btn-outline" onclick="_aPwdOpen=!_aPwdOpen;renderAdmin()">&#128273; Change Password</button>
+            <button class="btn btn-sm btn-danger"  onclick="adminLogout()">Logout</button>
+          </div>
+        </div>
+      </div>
+      <div class="container">
+        <div id="adminContent"></div>
+      </div>
+      <!-- Floating save button — fixed to left side of viewport -->
+      <div id="adminFloatSave" style="display:none;">
+        <button id="adminFloatSaveBtn" class="btn btn-primary"></button>
+      </div>
+    </section>
+
+    <!-- ==================== LIVE QUIZ TAB ==================== -->
+    <section class="tab-content" id="tab-live-quiz">
+      <div class="container" id="lqContainer"></div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODAL OVERLAY ==================== -->
+  <div class="modal-overlay" id="modalOverlay" style="display:none;">
+    <div class="modal-box" id="modalBox">
+      <h3 id="modalTitle">Confirm Submit</h3>
+      <p id="modalBody">Are you sure you want to submit this section?</p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" id="modalCancelBtn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-danger" id="modalConfirmBtn">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST NOTIFICATION ==================== -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Supabase JS client (must load before db.js and shared.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/shared.js"></script>
+  <script src="js/data-test.js"></script>
+  <script src="js/data-cam18.js"></script>
+  <script src="js/data-practice.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/mock-test.js"></script>
+  <script src="js/practice.js"></script>
+  <script src="js/review.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="js/live-quiz.js"></script>
+</body>
+</html>

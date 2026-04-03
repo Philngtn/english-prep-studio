@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><title>JS Test</title></head>
+<body>
+<div id="result">Waiting...</div>
+<script src="script.js"></script>
+<script>
+try {
+  document.getElementById("result").textContent = "JS loaded OK - functions: " + typeof startTestSection + ", " + typeof switchTab;
+} catch(e) {
+  document.getElementById("result").textContent = "ERROR: " + e.message;
+}
+</script>
+</body>
+</html>
