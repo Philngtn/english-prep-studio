@@ -190,6 +190,7 @@ let _adminSnapshot         = null;   // baseline form state after each render / 
 let _adminDirty            = false;  // true when form differs from baseline
 let _adminRendering        = false;  // suppress dirty detection during render cycles
 let _dirtyListenerAttached = false;  // ensure single listener on adminContent
+let _autoSaveTimer         = null;   // debounce timer for auto-save
 
 /* ── Main entry point ─────────────────────────────────────── */
 async function renderAdmin() {
@@ -254,6 +255,8 @@ function _adminSetDirty() {
   if (_adminRendering)      return;  // suppress during render cycle
   if (_adminSnapshot === null) return;  // baseline not yet established
   _adminDirty = _serializeAdminForm() !== _adminSnapshot;
+  // Trigger auto-save debounce if dirty
+  if (_adminDirty) _adminAutoSaveTrigger();
 }
 function _adminClearDirty() { _adminDirty = false; }
 // After a save that does NOT re-render, reset baseline to the current (saved)
@@ -261,6 +264,42 @@ function _adminClearDirty() { _adminDirty = false; }
 function _adminResetBaseline() {
   _adminSnapshot = _serializeAdminForm();
   _adminDirty    = false;
+}
+// Auto-save debounce: wait 2.5 seconds of inactivity, then save the current section
+function _adminAutoSaveTrigger() {
+  if (_adminRendering) return;  // don't auto-save during render cycles
+  if (_adminMode !== 'test') return;  // only auto-save for test editor, not practice
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => {
+    // Determine which save function to call based on current section
+    // These functions handle data collection + persistence directly
+    if (_aSec === 'reading')   { const data = _collectReadingData();   if (data) _persistSection(_aPkg, _aTest, 'reading', data); }
+    else if (_aSec === 'listening') { const data = _collectListeningData(); if (data) _persistSection(_aPkg, _aTest, 'listening', data); }
+    else if (_aSec === 'writing') {
+      const data = {
+        task1: {
+          prompt:           _val('wr-t1-prompt'),
+          instructions:     _val('wr-t1-instructions'),
+          chartDescription: _val('wr-t1-chart'),
+          imageUrl:         _val('wr-t1-image-url'),
+          imageType:        _val('wr-t1-image-type'),
+          imageCaption:     _val('wr-t1-image-caption'),
+          minWords:         parseInt(_val('wr-t1-minwords')) || 150,
+          rubric:           _val('wr-t1-rubric').split('\n').map(s=>s.trim()).filter(Boolean),
+          sampleAnswer:     _val('wr-t1-sample'),
+        },
+        task2: {
+          prompt:       _val('wr-t2-prompt'),
+          instructions: _val('wr-t2-instructions'),
+          minWords:     parseInt(_val('wr-t2-minwords')) || 250,
+          rubric:       _val('wr-t2-rubric').split('\n').map(s=>s.trim()).filter(Boolean),
+          sampleAnswer: _val('wr-t2-sample'),
+        },
+      };
+      if (data) _persistSection(_aPkg, _aTest, 'writing', data);
+    }
+    else if (_aSec === 'speaking') { const data = _collectSpeakingData(); if (data) _persistSection(_aPkg, _aTest, 'speaking', data); }
+  }, 2500);
 }
 function _adminGuard(action) {
   if (_adminDirty && !confirm('You have unsaved changes. Leave without saving?')) return;
