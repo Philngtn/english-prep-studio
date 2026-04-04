@@ -341,7 +341,8 @@ function renderCurrentQuestion() {
   // Writing
   if (q.type === 'writing') {
     _updateListeningPlayerBar(null);
-    const task  = q.taskNum === 1 ? WRITING_DATA.task1 : WRITING_DATA.task2;
+    const writingData = getActiveTestData('writing') || WRITING_DATA;
+    const task  = q.taskNum === 1 ? writingData.task1 : writingData.task2;
     const saved = appState.test.answers[q.id] || '';
     const instrBlock = task.instructions ? `<div class="writing-instructions">${task.instructions}</div>` : '';
     const imageBlock = (q.taskNum === 1 && task.imageUrl)
@@ -367,8 +368,9 @@ function renderCurrentQuestion() {
   // Speaking
   if (q.type === 'speaking') {
     _updateListeningPlayerBar(null);
+    const speakingData = getActiveTestData('speaking') || SPEAKING_DATA;
     const part = q.partNum;
-    const data = part === 1 ? SPEAKING_DATA.part1 : part === 2 ? SPEAKING_DATA.part2 : SPEAKING_DATA.part3;
+    const data = part === 1 ? speakingData.part1 : part === 2 ? speakingData.part2 : speakingData.part3;
     let html = `<div class="passage-label">Speaking ${data.title}</div>`;
     if (part === 1) {
       html += data.questions.map((sq, i) => {
@@ -793,8 +795,9 @@ function submitTest() {
     // Self-assessed — give estimated band based on rubric checkboxes
     let checked = 0, total = 0;
     if (section === 'writing') {
+      const writingData = getActiveTestData('writing') || WRITING_DATA;
       ['w1','w2'].forEach(wId => {
-        const task = wId==='w1'?WRITING_DATA.task1:WRITING_DATA.task2;
+        const task = wId==='w1'?writingData.task1:writingData.task2;
         total += task.rubric.length;
         task.rubric.forEach((_,i) => { if (answers['rubric_'+wId+'_'+i]) checked++; });
       });
