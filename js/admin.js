@@ -301,7 +301,37 @@ function _adminAutoSaveTrigger() {
     else if (_aSec === 'speaking') { const data = _collectSpeakingData(); if (data) _persistSection(_aPkg, _aTest, 'speaking', data); }
   }, 2500);
 }
+function _adminFlushAutoSave() {
+  if (!_autoSaveTimer) return;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = null;
+  // Immediately save without waiting for the debounce timer
+  if (_adminMode !== 'test') return;
+  if (_aSec === 'reading')   { const data = _collectReadingData();   if (data) _persistSection(_aPkg, _aTest, 'reading', data); }
+  else if (_aSec === 'listening') { const data = _collectListeningData(); if (data) _persistSection(_aPkg, _aTest, 'listening', data); }
+  else if (_aSec === 'writing') {
+    const data = {
+      task1: {
+        prompt: _val('wr-t1-prompt'), instructions: _val('wr-t1-instructions'),
+        chartDescription: _val('wr-t1-chart'), imageUrl: _val('wr-t1-image-url'),
+        imageType: _val('wr-t1-image-type'), imageCaption: _val('wr-t1-image-caption'),
+        minWords: parseInt(_val('wr-t1-minwords')) || 150,
+        rubric: _val('wr-t1-rubric').split('\n').map(s=>s.trim()).filter(Boolean),
+        sampleAnswer: _val('wr-t1-sample'),
+      },
+      task2: {
+        prompt: _val('wr-t2-prompt'), instructions: _val('wr-t2-instructions'),
+        minWords: parseInt(_val('wr-t2-minwords')) || 250,
+        rubric: _val('wr-t2-rubric').split('\n').map(s=>s.trim()).filter(Boolean),
+        sampleAnswer: _val('wr-t2-sample'),
+      },
+    };
+    if (data) _persistSection(_aPkg, _aTest, 'writing', data);
+  }
+  else if (_aSec === 'speaking') { const data = _collectSpeakingData(); if (data) _persistSection(_aPkg, _aTest, 'speaking', data); }
+}
 function _adminGuard(action) {
+  _adminFlushAutoSave();  // Save any pending changes before navigating away
   if (_adminDirty && !confirm('You have unsaved changes. Leave without saving?')) return;
   _adminClearDirty();
   action();
