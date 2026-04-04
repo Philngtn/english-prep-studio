@@ -440,8 +440,9 @@ function renderCurrentQuestion() {
 }
 
 function _renderReadingSplit(q, idx, qs) {
-  const passage    = READING_DATA.passages.find(p => p.id === q.passageId);
-  const passageIdx = READING_DATA.passages.findIndex(p => p.id === q.passageId);
+  const readingData = getActiveTestData('reading') || READING_DATA;
+  const passage    = readingData.passages.find(p => p.id === q.passageId);
+  const passageIdx = readingData.passages.findIndex(p => p.id === q.passageId);
   const passageQs  = qs.filter(pq => pq.passageId === q.passageId);
   const firstIdx   = qs.findIndex(pq => pq.passageId === q.passageId);
 
@@ -449,7 +450,7 @@ function _renderReadingSplit(q, idx, qs) {
   if (_lastPassageId !== q.passageId) {
     document.getElementById('readingPassagePane').innerHTML = `
       <div class="reading-pane-header">
-        <span class="passage-label">Passage ${passageIdx + 1} of ${READING_DATA.passages.length}</span>
+        <span class="passage-label">Passage ${passageIdx + 1} of ${readingData.passages.length}</span>
         <h3 class="reading-pane-title">${passage.title}</h3>
       </div>
       <div class="reading-passage-content">${passage.text}</div>`;
