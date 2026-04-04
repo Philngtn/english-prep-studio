@@ -174,7 +174,7 @@
 }
 .transcript-toggle:hover { background: rgba(0,0,0,0.03); border-radius: 8px; }
 .transcript-arrow { font-size: 0.78rem; color: var(--warning); font-weight: 600; white-space: nowrap; }
-.transcript-body { padding: 0 1.25rem 1rem; line-height: 1.7; }
+.transcript-body { padding: 0 1.25rem 1rem; line-height: 1.7; white-space: pre-wrap; word-wrap: break-word; }
 
 /* Questions */
 .question-block { margin-bottom: 1.75rem; }
@@ -217,6 +217,8 @@
   background: var(--primary-l); border: 1.5px solid var(--border-d);
   border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1rem;
   font-size: 0.93rem; line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 .writing-area { width: 100%; min-height: 260px; padding: 1rem; border: 2px solid var(--border); border-radius: 8px; font-size: 0.95rem; line-height: 1.7; resize: vertical; font-family: inherit; transition: border-color 0.15s; }
 .writing-area:focus { outline: none; border-color: var(--primary); }
@@ -237,6 +239,8 @@
 .cue-card {
   background: #fffbeb; border: 2px solid var(--warning);
   border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 .cue-card h5 { font-weight: 700; margin-bottom: 0.5rem; }
 .cue-card ul  { padding-left: 1.25rem; font-size: 0.93rem; line-height: 1.7; }
