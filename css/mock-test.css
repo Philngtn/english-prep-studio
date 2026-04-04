@@ -126,6 +126,8 @@
   padding: 1.5rem;
   font-size: 0.95rem; line-height: 1.8;
   flex: 1;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 .reading-passage-content p { margin-bottom: 0.75rem; }
 .reading-passage-content strong { font-weight: 700; }
