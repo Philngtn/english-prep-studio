@@ -163,11 +163,12 @@ function renderQNavigator() {
   }
 
   if (appState.test.section === 'reading') {
+    const readingData = getActiveTestData('reading') || READING_DATA;
     let html = '';
     let lastPassageId = null;
     qs.forEach((q, i) => {
       if (q.passageId && q.passageId !== lastPassageId) {
-        const pIdx = READING_DATA.passages.findIndex(p => p.id === q.passageId);
+        const pIdx = readingData.passages.findIndex(p => p.id === q.passageId);
         html += `<span class="q-nav-passage-label">Passage ${pIdx + 1}</span>`;
         lastPassageId = q.passageId;
       }
@@ -183,10 +184,10 @@ function renderQNavigator() {
     container.innerHTML = html;
     const currentQ = qs[appState.test.currentQ];
     if (currentQ && currentQ.passageId) {
-      const passageIdx = READING_DATA.passages.findIndex(p => p.id === currentQ.passageId);
-      const passage = READING_DATA.passages[passageIdx];
+      const passageIdx = readingData.passages.findIndex(p => p.id === currentQ.passageId);
+      const passage = readingData.passages[passageIdx];
       document.getElementById('timerQCount').textContent =
-        `Passage ${passageIdx + 1} of ${READING_DATA.passages.length}: ${passage.title}`;
+        `Passage ${passageIdx + 1} of ${readingData.passages.length}: ${passage.title}`;
     }
   } else if (appState.test.section === 'listening') {
     const listeningData = getActiveTestData('listening') || LISTENING_DATA;
@@ -267,11 +268,12 @@ function navigateQuestion(dir) {
 
   if (q && q.passageId) {
     // Reading: navigate by passage
-    const passageIdx = READING_DATA.passages.findIndex(p => p.id === q.passageId);
+    const readingData = getActiveTestData('reading') || READING_DATA;
+    const passageIdx = readingData.passages.findIndex(p => p.id === q.passageId);
     const nextIdx = passageIdx + dir;
-    if (nextIdx >= READING_DATA.passages.length) { confirmSubmit(); return; }
+    if (nextIdx >= readingData.passages.length) { confirmSubmit(); return; }
     if (nextIdx < 0) return;
-    const nextPassageId = READING_DATA.passages[nextIdx].id;
+    const nextPassageId = readingData.passages[nextIdx].id;
     const nextQIdx = qs.findIndex(pq => pq.passageId === nextPassageId);
     if (nextQIdx === -1) return;
     _lastPassageId = null;
@@ -476,7 +478,7 @@ function _renderReadingSplit(q, idx, qs) {
   // Nav buttons: passage-level
   document.getElementById('prevBtn').disabled = passageIdx === 0;
   document.getElementById('nextBtn').textContent =
-    passageIdx === READING_DATA.passages.length - 1 ? 'Submit ✓' : 'Next Passage →';
+    passageIdx === readingData.passages.length - 1 ? 'Submit ✓' : 'Next Passage →';
 }
 
 /* Show/update the sticky listening player bar when the section changes.
