@@ -186,6 +186,22 @@ async function doStudentRegister() {
   // onAuthStateChange SIGNED_IN will fire and handle nav + modal close.
 }
 
+/* ── Forgot password ──────────────────────────────────────── */
+async function doForgotPassword() {
+  const email = (document.getElementById('authLoginEmail')?.value || '').trim();
+  const errEl = document.getElementById('authErr');
+  if (!email) { errEl.style.color = ''; errEl.textContent = 'Enter your email address first.'; return; }
+  errEl.textContent = '';
+  const error = await db.resetPassword(email);
+  if (error) {
+    errEl.style.color = '';
+    errEl.textContent = error.message || 'Could not send reset email.';
+  } else {
+    errEl.style.color = 'var(--primary)';
+    errEl.textContent = '✓ Reset link sent — check your inbox.';
+  }
+}
+
 /* ── Login ────────────────────────────────────────────────── */
 async function doStudentLogin() {
   const email = (document.getElementById('authLoginEmail')?.value || '').trim();

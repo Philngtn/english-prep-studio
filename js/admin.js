@@ -157,28 +157,11 @@ async function adminLogout() {
   _adminAuth = false;
   renderAdmin();
 }
-async function adminChangePwd() {
-  const cur = (document.getElementById('adminCurPwd')  || {}).value || '';
-  const n1  = (document.getElementById('adminNewPwd1') || {}).value || '';
-  const n2  = (document.getElementById('adminNewPwd2') || {}).value || '';
-  const err = document.getElementById('adminPwdErr');
-  if (!n1 || n1 !== n2)  { err.textContent = 'New passwords do not match.'; return; }
-  if (n1.length < 6)     { err.textContent = 'Password must be at least 6 characters.'; return; }
-  const error = await db.updatePassword(cur, n1);
-  if (error) { err.textContent = 'Current password is incorrect.'; return; }
-  err.textContent = '';
-  // Clear input fields on success
-  document.getElementById('adminCurPwd').value = '';
-  document.getElementById('adminNewPwd1').value = '';
-  document.getElementById('adminNewPwd2').value = '';
-  showToast('Password updated.');
-}
 
 /* ── Panel state ──────────────────────────────────────────── */
 let _aPkg              = 'cam18';
 let _aTest             = 'test1';
 let _aSec              = 'listening';
-let _aPwdOpen          = false;
 let _adminMode         = 'test';      // 'test' | 'practice' | 'students'
 let _aStudentId        = null;        // currently viewed student
 let _aPracticeSec      = 'vocab';
@@ -591,25 +574,12 @@ async function adminForgotPassword() {
 
 /* ── Main view ────────────────────────────────────────────── */
 async function _buildMain() {
-  const pwdBox = _aPwdOpen ? `
-  <div class="admin-pwd-box">
-    <h4>Change Password</h4>
-    <div class="admin-pwd-row">
-      <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 0.5rem">${_adminEmail}</p>
-      <input type="password" id="adminCurPwd"  class="admin-input" placeholder="Current password">
-      <input type="password" id="adminNewPwd1" class="admin-input" placeholder="New password">
-      <input type="password" id="adminNewPwd2" class="admin-input" placeholder="Confirm new password">
-      <button class="btn btn-sm btn-primary" onclick="adminChangePwd()">Save</button>
-    </div>
-    <p class="admin-err" id="adminPwdErr"></p>
-  </div>` : '';
-
   if (_adminMode === 'practice') {
-    return pwdBox + _buildPracticeEditor();
+    return _buildPracticeEditor();
   }
 
   if (_adminMode === 'students') {
-    return pwdBox + await _buildStudentsDashboard();
+    return await _buildStudentsDashboard();
   }
 
   // Test editor mode
@@ -671,7 +641,6 @@ async function _buildMain() {
       onclick="adminSaveNames()">&#128190; Save Names</button>
   </div>
 
-  ${pwdBox}
   <div class="admin-sec-tabs">${secTabs}</div>
 
   <div class="admin-editor" id="adminEditor">

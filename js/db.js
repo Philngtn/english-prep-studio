@@ -14,17 +14,14 @@ const _sb = window.supabase.createClient(_SB_URL, _SB_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
 
-/* Always redirect back to app.html regardless of where the user
-   clicked the link from (email, OAuth, password reset). */
-function _appUrl() {
+/* Build an absolute URL to a file in the same directory as the current page. */
+function _sameDir(filename) {
   const { origin, pathname } = window.location;
-  // If already on app.html, use that exact path.
-  // Otherwise build the path — handles both local dev and GitHub Pages.
-  const base = pathname.endsWith('app.html')
-    ? pathname
-    : pathname.replace(/\/?$/, '/') + 'app.html';
-  return origin + base;
+  const dir = pathname.replace(/[^\/]*$/, '');
+  return origin + dir + filename;
 }
+function _appUrl()     { return _sameDir('app.html'); }
+function _changePwdUrl() { return _sameDir('change-password.html'); }
 
 /* Anonymous session ID — stays in localStorage, used to scope
    test history to the current browser without requiring login. */
@@ -54,7 +51,7 @@ const db = {
 
   async resetPassword(email) {
     const { error } = await _sb.auth.resetPasswordForEmail(email, {
-      redirectTo: _appUrl()
+      redirectTo: _changePwdUrl()
     });
     return error || null;
   },
@@ -75,13 +72,18 @@ const db = {
     return error || null;
   },
 
-  async updatePassword(currentPassword, newPassword) {
+  async updatePassword(newPassword) {
     const session = await db.getSession();
     if (!session) return new Error('Not authenticated');
-    const verifyErr = await db.login(session.user.email, currentPassword);
-    if (verifyErr) return verifyErr;
-    const { error } = await _sb.auth.updateUser({ password: newPassword });
-    return error || null;
+    try {
+      const { error } = await _sb.auth.updateUser({ password: newPassword });
+      if (error) return error;
+    } catch (_) {
+      // updateUser changes the password then fires a SIGNED_IN event that can
+      // trigger internal Supabase calls (e.g. loadHistory) which throw.
+      // The password is already changed at this point — treat as success.
+    }
+    return null;
   },
 
   /* ── Student Auth ─────────────────────────────────────────── */

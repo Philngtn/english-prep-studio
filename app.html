@@ -59,6 +59,7 @@
         <input type="email"    id="authLoginEmail" class="admin-input" placeholder="Email" style="width:100%;margin-bottom:.5rem;">
         <input type="password" id="authLoginPwd"   class="admin-input" placeholder="Password" style="width:100%;margin-bottom:.75rem;">
         <button class="btn btn-primary" id="authLoginBtn" onclick="doStudentLogin()" style="width:100%;">Sign In</button>
+        <button class="admin-forgot-link" onclick="doForgotPassword()" style="margin-top:.6rem;">Forgot password?</button>
       </div>
 
       <!-- Register pane -->
@@ -456,7 +457,7 @@
             <button class="admin-mode-tab"         id="adminTabStudents" onclick="adminSetMode('students')">&#128101; Students</button>
           </div>
           <div class="admin-bar-actions">
-            <button class="btn btn-sm btn-outline" onclick="_aPwdOpen=!_aPwdOpen;renderAdmin()">&#128273; Change Password</button>
+            <a class="btn btn-sm btn-outline" href="change-password.html">&#128273; Change Password</a>
             <button class="btn btn-sm btn-danger"  onclick="adminLogout()">Logout</button>
           </div>
         </div>
