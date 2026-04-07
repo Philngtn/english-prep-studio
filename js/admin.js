@@ -167,6 +167,10 @@ async function adminChangePwd() {
   const error = await db.updatePassword(cur, n1);
   if (error) { err.textContent = 'Current password is incorrect.'; return; }
   err.textContent = '';
+  // Clear input fields on success
+  document.getElementById('adminCurPwd').value = '';
+  document.getElementById('adminNewPwd1').value = '';
+  document.getElementById('adminNewPwd2').value = '';
   showToast('Password updated.');
 }
 
