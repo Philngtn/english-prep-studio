@@ -286,6 +286,25 @@ const db = {
     }
   },
 
+  /* ── Storage ─────────────────────────────────────────────── */
+
+  /**
+   * Upload a Blob/File to Supabase Storage (bucket: "media").
+   * Returns the public URL string, or throws on error.
+   * Requires the "media" bucket to exist and be public in Supabase Storage.
+   */
+  async uploadImage(blob, filename) {
+    const ext  = (filename || 'image').split('.').pop().replace(/[^a-z0-9]/gi, '') || 'jpg';
+    const path = `diagrams/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await _sb.storage.from('media').upload(path, blob, {
+      contentType: blob.type || 'image/jpeg',
+      upsert: false,
+    });
+    if (error) throw error;
+    const { data } = _sb.storage.from('media').getPublicUrl(path);
+    return data.publicUrl;
+  },
+
   // ── Live Quiz ────────────────────────────────────────────────
 
   async createQuizRoom(roomCode, hostId, hostName, questions, settings) {

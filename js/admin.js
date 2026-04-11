@@ -3755,16 +3755,20 @@ let _diagModalNextId  = 0;
 let _diagDragging     = null; // {pinId, lastX, lastY}
 let _diagDragMoved    = false;
 
-/* ── Upload image, compress and fill URL field ── */
+/* ── Upload image → resize → Supabase Storage → fill URL field ── */
 function adminDiagUploadImage(pi, qi, input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 8 * 1024 * 1024) { showToast('File too large — please use an image under 8 MB.'); return; }
+  if (file.size > 20 * 1024 * 1024) { showToast('File too large — please use an image under 20 MB.'); return; }
+
+  const btn = document.querySelector(`#rd-img-file-${pi}-${qi}`)?.nextElementSibling;
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading…'; }
+
   const reader = new FileReader();
   reader.onload = function(e) {
     const img = new Image();
     img.onload = function() {
-      // Resize to max 1400×1000 and compress to JPEG 85%
+      // Resize to max 1400×1000, compress to JPEG 85%, then upload as blob
       const MAX_W = 1400, MAX_H = 1000;
       let w = img.width, h = img.height;
       if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
@@ -3772,22 +3776,34 @@ function adminDiagUploadImage(pi, qi, input) {
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;
       cv.getContext('2d').drawImage(img, 0, 0, w, h);
-      const dataUrl = cv.toDataURL('image/jpeg', 0.85);
-      const urlInput  = document.getElementById(`rd-img-${pi}-${qi}`);
-      if (urlInput) urlInput.value = dataUrl;
-      const previewEl = document.getElementById(`rd-img-preview-${pi}-${qi}`);
-      if (previewEl && previewEl.tagName === 'IMG') {
-        previewEl.src = dataUrl;
-      } else if (previewEl) {
-        // Replace placeholder span with img
-        const img2 = document.createElement('img');
-        img2.id = `rd-img-preview-${pi}-${qi}`;
-        img2.className = 'diag-img-preview';
-        img2.alt = 'Preview';
-        img2.src = dataUrl;
-        previewEl.replaceWith(img2);
-      }
-      showToast('Image uploaded. Click "Save Reading" to persist.');
+
+      cv.toBlob(async function(blob) {
+        try {
+          const publicUrl = await db.uploadImage(blob, file.name);
+
+          const urlInput = document.getElementById(`rd-img-${pi}-${qi}`);
+          if (urlInput) urlInput.value = publicUrl;
+
+          const previewEl = document.getElementById(`rd-img-preview-${pi}-${qi}`);
+          if (previewEl && previewEl.tagName === 'IMG') {
+            previewEl.src = publicUrl;
+          } else if (previewEl) {
+            const img2 = document.createElement('img');
+            img2.id = `rd-img-preview-${pi}-${qi}`;
+            img2.className = 'diag-img-preview';
+            img2.alt = 'Preview';
+            img2.src = publicUrl;
+            previewEl.replaceWith(img2);
+          }
+          showToast('Image uploaded successfully.');
+        } catch (err) {
+          console.error('[Diag] Upload failed:', err);
+          showToast('Upload failed: ' + (err.message || 'Unknown error. Check Supabase Storage bucket "media" exists and is public.'));
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = '⇧ Upload'; }
+          input.value = ''; // reset file input so same file can be re-selected if needed
+        }
+      }, 'image/jpeg', 0.85);
     };
     img.src = e.target.result;
   };
