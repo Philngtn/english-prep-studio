@@ -93,6 +93,7 @@ function setupListeningTest() {
   const qs = [];
   data.sections.forEach(s => s.questions.forEach(q => qs.push({...q, sectionId: s.id})));
   appState.test.flatQuestions = qs;
+  lsStartAudioHighlight();
 }
 
 function setupWritingTest() {
@@ -500,6 +501,7 @@ function _updateListeningPlayerBar(section) {
     bar.style.display = 'none';
     player.innerHTML = '';
     _lastSectionId = null;
+    lsStopAudioHighlight();
     return;
   }
 
@@ -819,139 +821,19 @@ function _rdAttachHandlers(qPane) {
 
 /* ============================================================
    ===== LISTENING GROUP RENDERERS =====
+   Delegated to listening-renderer.js (loaded before this file).
    ============================================================ */
-function _lsEsc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-function _lsRenderGroup(q, idx) {
-  const allFqs = appState.test.flatQuestions;
-  const peers = allFqs.filter(fq => fq.groupId === q.groupId);
-  if (!peers.length) return _lsFallback(q, idx);
-  // Only render the group block for the first peer; return empty for others
-  if (peers[0].id !== q.id) return '';
-  const firstIdx = allFqs.indexOf(peers[0]);
-  const lastIdx  = allFqs.indexOf(peers[peers.length - 1]);
-  const rangeLabel = peers.length === 1
-    ? `Question ${peers[0].qNum || firstIdx + 1}`
-    : `Questions ${peers[0].qNum || firstIdx + 1}–${peers[peers.length-1].qNum || lastIdx + 1}`;
-  const t = q.type;
-  if (t === 'map_labeling' || t === 'diagram_labeling') return _lsRenderMapGroup(peers, rangeLabel);
-  if (t === 'flow_chart')       return _lsRenderFlowGroup(peers, rangeLabel);
-  if (t === 'table_completion') return _lsRenderTableGroup(peers, rangeLabel);
-  if (t === 'form_completion' || t === 'note_completion') return _lsRenderFormGroup(peers, rangeLabel);
-  return _lsRenderGenericGroup(peers, rangeLabel);
-}
-function _lsJumpBtn(questionStart) {
-  if (questionStart == null || questionStart < 0) return '';
-  const ts = Math.round(questionStart);
-  const mins = Math.floor(ts / 60); const secs = ts % 60;
-  const label = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-  return `<button class="ls-jump-btn" onclick="seekListeningAudio(${questionStart})" title="Jump to ${label}">&#9201;</button>`;
-}
-function _lsRenderMapGroup(peers, rangeLabel) {
-  const imgUrl = (peers[0] && peers[0].groupImage) || '';
-  const pinsHtml = peers.map((p, i) => {
-    const letter = String.fromCharCode(65 + i);
-    const saved = appState.test.answers[p.id] || '';
-    return `<div class="ls-map-pin" style="left:${p.xPct || 0}%;top:${p.yPct || 0}%">
-      <div class="ls-map-letter">${letter}</div>
-      <input type="text" class="ls-map-input" value="${_lsEsc(saved)}"
-             oninput="saveAnswer('${p.id}',this.value)" placeholder="${letter}">
-    </div>`;
-  }).join('');
-  const promptsHtml = peers.map((p, i) => {
-    const letter = String.fromCharCode(65 + i);
-    return `<div class="ls-map-prompt"><strong>${letter}.</strong> ${p.text || ''} ${_lsJumpBtn(p.questionStart)}</div>`;
-  }).join('');
-  return `<div class="question-block">
-    <div class="question-number">${rangeLabel}</div>
-    ${imgUrl ? `<div class="ls-map-wrap"><img src="${_lsEsc(imgUrl)}" class="ls-map-img" alt="Map/Diagram"><div class="ls-map-overlay">${pinsHtml}</div></div>` : ''}
-    <div class="ls-map-prompts">${promptsHtml}</div>
-  </div>`;
-}
-function _lsRenderFlowGroup(peers, rangeLabel) {
-  const nodesHtml = peers.map(p => {
-    const saved = appState.test.answers[p.id] || '';
-    const pre = p.prefix || ''; const suf = p.suffix || '';
-    return `<div class="ls-flow-step">
-      ${p.nodeNum ? `<div class="ls-flow-node">${p.nodeNum}</div>` : ''}
-      <div class="ls-flow-content">${_lsEsc(pre)}<input type="text" class="ls-flow-input" value="${_lsEsc(saved)}" oninput="saveAnswer('${p.id}',this.value)" placeholder="...">${_lsEsc(suf)} ${_lsJumpBtn(p.questionStart)}</div>
-    </div>`;
-  }).join('<div class="ls-flow-arrow">&#8595;</div>');
-  return `<div class="question-block">
-    <div class="question-number">${rangeLabel}</div>
-    <div class="ls-flow-chart">${nodesHtml}</div>
-  </div>`;
-}
-function _lsRenderTableGroup(peers, rangeLabel) {
-  const rowKeys = []; const colKeys = [];
-  peers.forEach(p => {
-    if (p.rowContext && !rowKeys.includes(p.rowContext)) rowKeys.push(p.rowContext);
-    if (p.colContext && !colKeys.includes(p.colContext)) colKeys.push(p.colContext);
-  });
-  const cellMap = {};
-  peers.forEach(p => { cellMap[`${p.rowContext}||${p.colContext}`] = p; });
-  const headerHtml = `<tr><th></th>${colKeys.map(c => `<th>${c}</th>`).join('')}</tr>`;
-  const bodyHtml = rowKeys.map(row => `<tr>
-    <td class="ls-table-row-label">${row}</td>
-    ${colKeys.map(col => {
-      const p = cellMap[`${row}||${col}`];
-      if (!p) return '<td></td>';
-      const saved = appState.test.answers[p.id] || '';
-      return `<td><input type="text" class="ls-table-cell-input" value="${_lsEsc(saved)}" oninput="saveAnswer('${p.id}',this.value)">${p.questionStart != null ? _lsJumpBtn(p.questionStart) : ''}</td>`;
-    }).join('')}
-  </tr>`).join('');
-  return `<div class="question-block">
-    <div class="question-number">${rangeLabel}</div>
-    <div class="ls-table-wrap"><table class="ls-completion-table"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table></div>
-  </div>`;
-}
-function _lsRenderFormGroup(peers, rangeLabel) {
-  const fieldsHtml = peers.map(p => {
-    const saved = appState.test.answers[p.id] || '';
-    return `<div class="ls-form-field">
-      <label class="ls-form-label">${p.text || `Q${p.qNum}`} ${_lsJumpBtn(p.questionStart)}</label>
-      <input type="text" class="ls-form-input" value="${_lsEsc(saved)}" oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
-    </div>`;
-  }).join('');
-  return `<div class="question-block">
-    <div class="question-number">${rangeLabel}</div>
-    <div class="ls-form-group">${fieldsHtml}</div>
-  </div>`;
-}
-function _lsRenderGenericGroup(peers, rangeLabel) {
-  const items = peers.map(p => {
-    const saved = appState.test.answers[p.id] || '';
-    return `<div style="margin-bottom:0.75rem;">
-      ${p.text ? `<div class="question-text" style="margin-bottom:0.35rem;">${_lsEsc(p.text)} ${_lsJumpBtn(p.questionStart)}</div>` : _lsJumpBtn(p.questionStart)}
-      <input type="text" class="answer-input" value="${_lsEsc(saved)}"
-        oninput="saveAnswer('${p.id}',this.value)" placeholder="Answer...">
-    </div>`;
-  }).join('');
-  return `<div class="question-block">
-    <div class="question-number">${rangeLabel}</div>
-    ${items}
-  </div>`;
-}
-function _lsFallback(q, idx) {
-  const saved = appState.test.answers[q.id] || '';
-  const qLabel = q.qNum != null ? q.qNum : idx + 1;
-  return `<div class="question-block">
-    <div class="question-number">Question ${qLabel} ${_lsJumpBtn(q.questionStart)}</div>
-    <div class="question-text">${q.text || ''}</div>
-    <input type="text" class="answer-input" placeholder="Type your answer..." value="${_lsEsc(saved)}" oninput="saveAnswer('${q.id}',this.value)">
-  </div>`;
-}
 
 function renderQuestionHTML(q, idx) {
-  // Group types: render all peers in the group together
-  if (q.groupId) return _lsRenderGroup(q, idx);
+  // Group types: render all peers in the group together (via listening-renderer.js)
+  if (q.groupId) return lsRenderGroup(q, idx);
 
   const saved = appState.test.answers[q.id];
   const qLabel  = q.qNum != null ? q.qNum : idx + 1;
   const qPrefix = String(qLabel).includes('&') ? 'Questions' : 'Question';
   let html = `<div class="question-block">
-    <div class="question-number">${qPrefix} ${qLabel} ${_lsJumpBtn(q.questionStart)}</div>
+    <div class="question-number">${qPrefix} ${qLabel} ${lsJumpBtn(q.questionStart)}</div>
+    ${q.answerRule ? lsAnswerRule(q.answerRule) : ''}
     <div class="question-text">${q.text}</div>`;
 
   if (q.type === 'mcq') {
@@ -1073,6 +955,7 @@ function confirmSubmit() {
 function submitTest() {
   closeModal();
   stopTimer();
+  lsStopAudioHighlight();
   const { section, answers, flatQuestions, startTime } = appState.test;
   const timeTaken = Math.round((Date.now() - startTime) / 1000 / 60); // minutes
 
@@ -1109,10 +992,13 @@ function submitTest() {
       const givenArr = (given || '').split(',').filter(Boolean).map(s => s.toUpperCase()).sort();
       const ansArr   = q.answer.map(a => a.toUpperCase()).sort();
       isCorrect = givenArr.length === ansArr.length && givenArr.every((v, i) => v === ansArr[i]);
-    } else if (q.type === 'short') {
-      const acceptables = q.answer.toLowerCase().split('/').map(s=>s.trim());
+    } else if (q.type === 'short' || q.type === 'sentence_completion' || q.type === 'note_completion'
+        || q.type === 'summary_completion' || q.type === 'form_completion' || q.type === 'flow_chart'
+        || q.type === 'table_completion' || q.type === 'map_labeling' || q.type === 'diagram_labeling'
+        || q.type === 'plan_labeling') {
+      const acceptables = String(q.answer || '').toLowerCase().split('/').map(s=>s.trim()).filter(Boolean);
       const givenNorm = (given||'').toLowerCase().trim();
-      isCorrect = acceptables.some(a => givenNorm.includes(a) || a.includes(givenNorm) && givenNorm.length > 1);
+      isCorrect = acceptables.length > 0 && acceptables.some(a => givenNorm.includes(a) || (a.includes(givenNorm) && givenNorm.length > 1));
     }
     if (isCorrect) correct++;
     return { q, given, isCorrect };

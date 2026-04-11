@@ -674,3 +674,55 @@ iframe.listening-audio-player { height: 80px; }
   border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.9rem;
 }
 .ls-form-input:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
+
+/* ── Audio active question highlight ────────────────────────── */
+.question-block.ls-active-question {
+  outline: 2px solid var(--primary);
+  border-radius: var(--radius, 8px);
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.10);
+  transition: outline 0.2s, box-shadow 0.2s;
+}
+
+/* ── No image placeholder ────────────────────────────────────── */
+.ls-no-image {
+  color: var(--text-muted, #888); font-style: italic;
+  font-size: 0.85rem; margin: 0.5rem 0;
+}
+
+/* ── Note completion (line-based) ───────────────────────────── */
+.ls-note-group { display: flex; flex-direction: column; gap: 0.55rem; margin: 0.75rem 0; }
+.ls-note-line { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.9rem; flex-wrap: wrap; }
+.ls-note-label { flex: 0 0 auto; min-width: 140px; max-width: 220px; color: var(--text-muted, #666); }
+.ls-note-input {
+  flex: 1; max-width: 260px; border: none; border-bottom: 1.5px solid var(--border);
+  background: transparent; font-size: 0.9rem; padding: 0.15rem 0.3rem;
+}
+.ls-note-input:focus { outline: none; border-bottom-color: var(--primary); }
+
+/* ── Token-based sentence / summary completions ─────────────── */
+.ls-sentence-tokens { line-height: 2.5; font-size: 0.93rem; }
+.ls-token-text { }
+.ls-token-blank-wrap {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  vertical-align: middle; margin: 0 0.1rem;
+}
+.ls-token-blank-num {
+  font-size: 0.7rem; font-weight: 700; color: var(--primary);
+  background: rgba(236, 72, 153, 0.08); border-radius: 3px;
+  padding: 0 3px; line-height: 1.6;
+}
+.ls-token-blank-input {
+  width: 120px; border: none; border-bottom: 2px solid var(--primary);
+  background: transparent; font-size: 0.9rem; padding: 0.1rem 0.3rem;
+  text-align: center;
+}
+.ls-token-blank-input:focus { outline: none; border-bottom-color: var(--primary); }
+
+/* ── Answer rule and instruction banners ─────────────────────── */
+.ls-answer-rule {
+  font-size: 0.8rem; font-weight: 600; color: var(--text-muted, #666);
+  background: var(--sidebar-bg, #f8f9fa); border-left: 3px solid var(--primary);
+  padding: 0.3rem 0.65rem; border-radius: 0 4px 4px 0; margin-bottom: 0.5rem;
+  display: inline-block;
+}
+.ls-instruction { font-size: 0.9rem; font-style: italic; margin-bottom: 0.5rem; color: var(--text, #333); }

@@ -667,31 +667,75 @@ const LISTENING_JSON_SCHEMA = `{
       "title": "Part 1: Accommodation Enquiry",
       "audio_url": "audio/section1.mp3",
       "transcript": "...",
-      "ranges": [
-        { "range": "1-5",  "start": 15, "label": "Questions 1–5",  "instruction": "Complete the form.",   "group_indexes": [0] },
-        { "range": "6-10", "start": 65, "label": "Questions 6–10", "instruction": "Label the map below.", "group_indexes": [1] }
-      ],
       "groups": [
 
-        // ── form_completion ─────────────────────────────────
+        // ── form_completion ──────────────────────────────────
         { "type": "form_completion",
+          "answer_rule": "ONE WORD AND/OR A NUMBER",
+          "instruction": "Complete the form below.",
           "questions": [
-            { "id": 1, "label": "First name",  "answer": ["Emma"],       "start": 18 },
-            { "id": 2, "label": "Postcode",     "answer": ["DW30 7YZ"],  "start": 24 }
+            { "id": 1, "label": "First name",  "answer": ["Emma"],      "start": 18 },
+            { "id": 2, "label": "Postcode",    "answer": ["DW30 7YZ"],  "start": 24 }
           ]
         },
 
-        // ── note_completion ─────────────────────────────────
+        // ── note_completion ──────────────────────────────────
         { "type": "note_completion",
+          "answer_rule": "NO MORE THAN TWO WORDS",
           "questions": [
-            { "id": 3, "label": "Venue type",  "answer": ["sports centre"], "start": 40 },
-            { "id": 4, "label": "Open from",   "answer": ["7am"],           "start": 46 }
+            { "id": 3, "label": "Venue type", "answer": ["sports centre"], "start": 40 },
+            { "id": 4, "label": "Open from",  "answer": ["7am"],           "start": 46 }
           ]
         },
 
-        // ── table_completion ────────────────────────────────
+        // ── sentence_completion (simple — label with blank implied) ─
+        { "type": "sentence_completion",
+          "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
+          "questions": [
+            { "id": 8, "label": "The café opens at ________.", "answer": ["8am"], "start": 72 }
+          ]
+        },
+
+        // ── sentence_completion (token-based — blank embedded in sentence) ─
+        { "type": "sentence_completion",
+          "answer_rule": "ONE WORD ONLY",
+          "questions": [
+            {
+              "id": 9,
+              "tokens": [
+                {"type":"text","value":"Car parking costs "},
+                {"type":"blank","id":9},
+                {"type":"text","value":" per hour."}
+              ],
+              "answer": ["£2"], "start": 78
+            }
+          ]
+        },
+
+        // ── summary_completion (flowing paragraph with inline blanks) ─
+        { "type": "summary_completion",
+          "answer_rule": "ONE WORD ONLY",
+          "instruction": "Complete the summary below.",
+          "questions": [
+            {
+              "id": 10,
+              "tokens": [
+                {"type":"text","value":"The centre was built in "},
+                {"type":"blank","id":10},
+                {"type":"text","value":" and expanded "},
+                {"type":"blank","id":11},
+                {"type":"text","value":" times since."}
+              ],
+              "answer": ["1998"], "start": 90
+            },
+            { "id": 11, "label": "Number of expansions", "answer": ["three"], "start": 95 }
+          ]
+        },
+
+        // ── table_completion ─────────────────────────────────
         { "type": "table_completion",
           "columns": ["Activity", "Day", "Cost"],
+          "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
           "questions": [
             { "id": 5, "row": "Swimming", "col": "Day",  "answer": ["Monday"],   "start": 55 },
             { "id": 6, "row": "Swimming", "col": "Cost", "answer": ["£4.50"],    "start": 58 },
@@ -699,22 +743,24 @@ const LISTENING_JSON_SCHEMA = `{
           ]
         },
 
-        // ── sentence_completion ─────────────────────────────
-        { "type": "sentence_completion",
+        // ── flow_chart ───────────────────────────────────────
+        { "type": "flow_chart",
+          "answer_rule": "ONE WORD ONLY",
           "questions": [
-            { "id": 8,  "label": "The café opens at ________.", "answer": ["8 in the morning"], "start": 72 },
-            { "id": 9,  "label": "Car parking costs ________ per hour.", "answer": ["£2"],      "start": 78 }
+            { "id": 31, "node": 1, "prefix": "Water collected from", "answer": ["river"],     "suffix": "",                  "start": 290 },
+            { "id": 32, "node": 2, "prefix": "Passed through a",     "answer": ["filter"],    "suffix": "to remove solids",  "start": 295 },
+            { "id": 33, "node": 3, "prefix": "Treated with",         "answer": ["chemicals"], "suffix": "to kill bacteria",  "start": 302 }
           ]
         },
 
-        // ── multiple_choice (single answer) ─────────────────
+        // ── multiple_choice (single answer) ──────────────────
         { "type": "multiple_choice",
           "questions": [
             { "id": 11, "text": "What is the main purpose?", "options": ["A. Transport", "B. Health", "C. Education"], "answer": ["B"], "start": 105 }
           ]
         },
 
-        // ── multiple_choice (two answers) ───────────────────
+        // ── multiple_choice (two answers) ────────────────────
         { "type": "multiple_choice", "multi": true, "count": 2,
           "questions": [
             { "id": 14, "text": "Which TWO activities are available?",
@@ -723,7 +769,7 @@ const LISTENING_JSON_SCHEMA = `{
           ]
         },
 
-        // ── matching ────────────────────────────────────────
+        // ── matching ─────────────────────────────────────────
         { "type": "matching",
           "options": ["A. Monday", "B. Tuesday", "C. Wednesday", "D. Thursday", "E. Friday"],
           "questions": [
@@ -732,42 +778,41 @@ const LISTENING_JSON_SCHEMA = `{
           ]
         },
 
-        // ── map_labeling ────────────────────────────────────
+        // ── map_labeling ──────────────────────────────────────
+        // Upload an image in Admin → use "Place Boxes" to set x/y visually
         // x, y are percentages (0–100) from top-left of the image
         { "type": "map_labeling",
-          "image": "images/sports-centre-map.png",
+          "answer_rule": "ONE WORD ONLY",
+          "image": "https://your-supabase-url/storage/v1/object/public/media/diagrams/map.jpg",
           "labels": [
             { "id": 21, "label": "A", "answer": ["café"],         "start": 202, "x": 22.5, "y": 38.0 },
-            { "id": 22, "label": "B", "answer": ["changing room"],"start": 208, "x": 55.0, "y": 62.5 },
-            { "id": 23, "label": "C", "answer": ["car park"],     "start": 215, "x": 78.0, "y": 45.0 }
+            { "id": 22, "label": "B", "answer": ["changing room"],"start": 208, "x": 55.0, "y": 62.5 }
           ]
         },
 
-        // ── diagram_labeling ────────────────────────────────
+        // ── diagram_labeling ─────────────────────────────────
         { "type": "diagram_labeling",
-          "image": "images/water-filter.png",
+          "image": "https://your-supabase-url/storage/v1/object/public/media/diagrams/diagram.jpg",
           "labels": [
             { "id": 26, "label": "1", "answer": ["inlet valve"], "start": 240, "x": 15.0, "y": 25.0 },
             { "id": 27, "label": "2", "answer": ["filter mesh"], "start": 246, "x": 50.0, "y": 50.0 }
           ]
         },
 
-        // ── flow_chart ──────────────────────────────────────
-        { "type": "flow_chart",
-          "questions": [
-            { "id": 31, "node": 1, "prefix": "Water collected from",  "answer": ["river"],     "suffix": "",                    "start": 290 },
-            { "id": 32, "node": 2, "prefix": "Passed through a",      "answer": ["filter"],    "suffix": "to remove solids",    "start": 295 },
-            { "id": 33, "node": 3, "prefix": "Treated with",          "answer": ["chemicals"], "suffix": "to kill bacteria",    "start": 302 },
-            { "id": 34, "node": 4, "prefix": "Stored in a",           "answer": ["reservoir"], "suffix": "before distribution", "start": 309 }
+        // ── plan_labeling (floor plan / building layout) ──────
+        { "type": "plan_labeling",
+          "image": "https://your-supabase-url/storage/v1/object/public/media/diagrams/floor-plan.jpg",
+          "labels": [
+            { "id": 30, "label": "A", "answer": ["reception"], "start": 270, "x": 40.0, "y": 30.0 }
           ]
         },
 
-        // ── short_answer ────────────────────────────────────
+        // ── short_answer ─────────────────────────────────────
         { "type": "short_answer",
-          "instruction": "Write NO MORE THAN TWO WORDS AND/OR A NUMBER.",
+          "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
           "questions": [
-            { "id": 36, "text": "What material is the roof made from?",    "answer": ["bamboo"],  "start": 340 },
-            { "id": 37, "text": "How many floors does the building have?", "answer": ["three","3"],"start": 346 }
+            { "id": 36, "text": "What material is the roof made from?",    "answer": ["bamboo"],       "start": 340 },
+            { "id": 37, "text": "How many floors does the building have?", "answer": ["three", "3"],  "start": 346 }
           ]
         }
 
@@ -1154,9 +1199,13 @@ const SPEAKING_JSON_SCHEMA = `{
 
 /* ── Helpers ──────────────────────────────────────────────── */
 function _lsNormalizeType(t) {
-  return t === 'multiple_choice' ? 'mcq'
-       : t === 'short_answer'    ? 'short'
-       : t;
+  if (t === 'multiple_choice') return 'mcq';
+  if (t === 'short_answer')    return 'short';
+  if (t === 'plan_labeling')   return 'plan_labeling';
+  if (t === 'sentence_completion') return 'sentence_completion';
+  if (t === 'summary_completion')  return 'summary_completion';
+  if (t === 'note_completion')     return 'note_completion';
+  return t;
 }
 
 function _lsGroupsToFlat(section, si) {
@@ -1164,26 +1213,36 @@ function _lsGroupsToFlat(section, si) {
   (section.groups || []).forEach((group, gi) => {
     const groupId  = `grp_s${si}_g${gi}_${Date.now()}`;
     const type     = _lsNormalizeType(group.type);
-    const isGfx    = type === 'map_labeling' || type === 'diagram_labeling';
-    const isGroup  = isGfx || ['flow_chart','table_completion','form_completion','note_completion'].includes(type);
+    const isGfx    = type === 'map_labeling' || type === 'diagram_labeling' || type === 'plan_labeling';
+    const isGroup  = isGfx || ['flow_chart','table_completion','form_completion','note_completion',
+                                'sentence_completion','summary_completion'].includes(type);
     const items    = isGfx ? (group.labels || group.questions || []) : (group.questions || []);
+    const answerRule  = group.answer_rule || group.answerRule || '';
+    const instruction = group.instruction || '';
+    const isMulti     = type === 'multi' || group.multi === true;
 
     items.forEach((item, ii) => {
       const ans = Array.isArray(item.answer) ? item.answer[0] : (item.answer || '');
       const q = {
         id:      `t_s${si}_g${gi}_${ii}_${Date.now()}`,
         qNum:    item.id || (flat.length + 1),
-        type,
+        type:    isMulti ? 'multi' : type,
         text:    item.label || item.text || '',
-        answer:  type === 'multi' ? (Array.isArray(item.answer) ? item.answer.join(', ') : ans) : ans,
+        answer:  isMulti ? (Array.isArray(item.answer) ? item.answer.join(', ') : ans) : ans,
         start:   item.start || 0,
         options: group.options || item.options || [],
         count:   group.count  || item.count  || 1,
       };
       if (isGroup) q.groupId = groupId;
+      if (answerRule)  q.answerRule  = answerRule;
+      if (instruction) q.instruction = ii === 0 ? instruction : '';  // only first in group
       if (isGfx)  { q.groupImage = group.image || ''; q.xPct = item.x || 0; q.yPct = item.y || 0; q.labelText = item.label || ''; }
       if (type === 'flow_chart')       { q.nodeNum = item.node || (ii + 1); q.prefix = item.prefix || ''; q.suffix = item.suffix || ''; }
       if (type === 'table_completion') { q.rowContext = item.row || ''; q.colContext = item.col || ''; q.groupColumns = group.columns || []; }
+      // Token-based sentence/summary: propagate tokens array if present on item
+      if ((type === 'sentence_completion' || type === 'summary_completion') && item.tokens) {
+        q.tokens = item.tokens;
+      }
       flat.push(q);
     });
   });
@@ -1220,6 +1279,248 @@ function adminImportListeningJSON(si, replaceAll) {
 
   _applyListeningEditorState(data);
   showToast(`Imported ${flatQs.length} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
+}
+
+/* ── JSON export ──────────────────────────────────────────────── */
+
+/**
+ * Convert a flat questions array back to the structured ChatGPT-friendly JSON format.
+ * @param {Array}  questions - flat question array from _collectListeningData
+ * @param {number} si        - section index (0-based)
+ * @param {Object} secMeta   - { title, audioUrl } for the section header
+ */
+function _lsFlatToGroups(questions, si, secMeta) {
+  si = si || 0;
+  secMeta = secMeta || {};
+  const groups = [];
+  const seen   = new Set();
+
+  // Process questions in order, grouping by groupId
+  questions.forEach(q => {
+    if (seen.has(q.id)) return;
+
+    if (q.groupId) {
+      // Collect all peers of this group (in order, already seen filtered)
+      const peers = questions.filter(p => p.groupId === q.groupId);
+      peers.forEach(p => seen.add(p.id));
+
+      const type = q.type;
+      const grp  = { type };
+      if (q.answerRule) grp.answer_rule = q.answerRule;
+      if (q.instruction) grp.instruction = q.instruction;
+
+      if (type === 'map_labeling' || type === 'diagram_labeling' || type === 'plan_labeling') {
+        grp.image   = peers[0].groupImage || '';
+        grp.labels  = peers.map(p => {
+          const entry = { id: p.qNum, label: p.text || '', answer: [p.answer || ''], start: p.questionStart || 0, x: p.xPct || 0, y: p.yPct || 0 };
+          return entry;
+        });
+      } else if (type === 'flow_chart') {
+        grp.questions = peers.map(p => ({
+          id: p.qNum, node: p.nodeNum || 1,
+          prefix: p.prefix || '', answer: [p.answer || ''], suffix: p.suffix || '',
+          start: p.questionStart || 0
+        }));
+      } else if (type === 'table_completion') {
+        // Reconstruct columns from unique colContext values
+        const colSet = [];
+        peers.forEach(p => { if (p.colContext && !colSet.includes(p.colContext)) colSet.push(p.colContext); });
+        grp.columns   = colSet;
+        grp.questions = peers.map(p => ({
+          id: p.qNum, row: p.rowContext || '', col: p.colContext || '',
+          answer: [p.answer || ''], start: p.questionStart || 0
+        }));
+      } else if (type === 'matching') {
+        grp.options   = peers[0].options || [];
+        grp.questions = peers.map(p => ({ id: p.qNum, text: p.text || '', answer: [p.answer || ''], start: p.questionStart || 0 }));
+      } else if (type === 'mcq') {
+        grp.questions = peers.map(p => ({
+          id: p.qNum, text: p.text || '', options: p.options || [],
+          answer: [p.answer || ''], start: p.questionStart || 0
+        }));
+      } else if (type === 'multi') {
+        grp.multi     = true;
+        grp.count     = peers[0].count || 2;
+        grp.questions = peers.map(p => ({
+          id: p.qNum, text: p.text || '', options: p.options || [],
+          answer: Array.isArray(p.answer) ? p.answer : (p.answer ? p.answer.split(',').map(s=>s.trim()) : []),
+          start: p.questionStart || 0
+        }));
+      } else if (type === 'sentence_completion' && peers[0].tokens && peers[0].tokens.length) {
+        grp.questions = peers.map(p => ({
+          id: p.qNum, tokens: p.tokens, answer: [p.answer || ''], start: p.questionStart || 0
+        }));
+      } else {
+        // form_completion, note_completion, sentence_completion (label), summary_completion
+        grp.questions = peers.map(p => ({ id: p.qNum, label: p.text || '', answer: [p.answer || ''], start: p.questionStart || 0 }));
+      }
+      groups.push(grp);
+
+    } else {
+      // Standalone question
+      seen.add(q.id);
+      const grp = { type: q.type };
+      if (q.answerRule) grp.answer_rule = q.answerRule;
+      if (q.instruction) grp.instruction = q.instruction;
+      if (q.type === 'mcq') {
+        grp.questions = [{ id: q.qNum, text: q.text || '', options: q.options || [], answer: [q.answer || ''], start: q.questionStart || 0 }];
+      } else if (q.type === 'multi') {
+        grp.multi = true; grp.count = q.count || 2;
+        grp.questions = [{ id: q.qNum, text: q.text || '', options: q.options || [],
+          answer: Array.isArray(q.answer) ? q.answer : (q.answer ? q.answer.split(',').map(s=>s.trim()) : []),
+          start: q.questionStart || 0 }];
+      } else if (q.type === 'matching') {
+        grp.options = q.options || [];
+        grp.questions = [{ id: q.qNum, text: q.text || '', answer: [q.answer || ''], start: q.questionStart || 0 }];
+      } else {
+        grp.questions = [{ id: q.qNum, label: q.text || '', answer: [q.answer || ''], start: q.questionStart || 0 }];
+      }
+      groups.push(grp);
+    }
+  });
+
+  return {
+    sections: [{
+      section_id: si + 1,
+      title:      secMeta.title    || '',
+      audio_url:  secMeta.audioUrl || '',
+      groups
+    }]
+  };
+}
+
+function adminExportListeningJSON(si) {
+  const data = _collectListeningData();
+  const sec  = data.sections[si];
+  const json = _lsFlatToGroups(sec.questions, si, sec);
+  const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `listening_part${si + 1}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Part ${si + 1} exported.`);
+}
+
+function adminCopyListeningJSON(si) {
+  const data = _collectListeningData();
+  const sec  = data.sections[si];
+  const json = _lsFlatToGroups(sec.questions, si, sec);
+  navigator.clipboard.writeText(JSON.stringify(json, null, 2))
+    .then(() => showToast('JSON copied to clipboard.'))
+    .catch(() => showToast('Copy failed — try Export instead.'));
+}
+
+/* ── Live JSON editor ─────────────────────────────────────────── */
+const _lsJsonDebounce = {};
+let   _lsJsonApplying = false;
+
+function _lsJsonOnInput(si) {
+  clearTimeout(_lsJsonDebounce[si]);
+  _lsJsonDebounce[si] = setTimeout(() => _lsJsonApplyLive(si), 350);
+}
+
+function _lsJsonApplyLive(si) {
+  const ta    = document.getElementById(`ls-json-live-${si}`);
+  const errEl = document.getElementById(`ls-json-error-${si}`);
+  if (!ta || !errEl) return;
+  const raw = ta.value.trim();
+  if (!raw) return;
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch(e) {
+    errEl.className = 'ls-json-error';
+    errEl.textContent = 'JSON error: ' + e.message;
+    errEl.style.display = '';
+    return;
+  }
+  const section = parsed.groups ? parsed : (parsed.sections ? (parsed.sections[0] || null) : null);
+  if (!section) {
+    errEl.className = 'ls-json-warn';
+    errEl.textContent = 'Must have "sections" or "groups" at the top level.';
+    errEl.style.display = '';
+    return;
+  }
+  const flat = _lsGroupsToFlat(section, si);
+  if (!flat.length) {
+    errEl.className = 'ls-json-warn';
+    errEl.textContent = 'Valid JSON — no questions found yet. Keep typing…';
+    errEl.style.display = '';
+    return;
+  }
+  errEl.style.display = 'none';
+  _lsJsonApplying = true;
+  const data = _collectListeningData();
+  data.sections[si].questions = flat;
+  if (section.title && !data.sections[si].title) data.sections[si].title = section.title;
+  if (section.audio_url && !data.sections[si].audioUrl) data.sections[si].audioUrl = section.audio_url;
+  _applyListeningEditorState(data);
+  // Re-select the JSON tab (applyListeningEditorState rebuilds the whole editor)
+  setTimeout(() => { adminSwitchLsMode(si, 'json'); _lsJsonApplying = false; }, 0);
+}
+
+function _lsJsonRefreshEditor(si) {
+  if (_lsJsonApplying) return;
+  const ta = document.getElementById(`ls-json-live-${si}`);
+  if (!ta) return;
+  const data = _collectListeningData();
+  const sec  = data.sections[si];
+  const json = _lsFlatToGroups(sec.questions, si, sec);
+  ta.value = JSON.stringify(json, null, 2);
+}
+
+/* ── Preview renderer for admin ───────────────────────────────── */
+function _lsRenderAdminPreview(si) {
+  const container = document.getElementById(`ls-preview-content-${si}`);
+  if (!container) return;
+  const data = _collectListeningData();
+  const sec  = data.sections[si];
+  if (!sec.questions.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-style:italic;">No questions yet.</p>';
+    return;
+  }
+  // Temporarily populate appState for the renderer
+  const prevQs  = appState.test ? appState.test.flatQuestions : [];
+  const prevAns = appState.test ? appState.test.answers : {};
+  if (!appState.test) appState.test = {};
+  appState.test.flatQuestions = sec.questions;
+  appState.test.answers       = appState.test.answers || {};
+
+  const rendered = new Set();
+  const cards    = [];
+  sec.questions.forEach((q, idx) => {
+    if (rendered.has(q.id)) return;
+    if (q.groupId) {
+      const peers = sec.questions.filter(p => p.groupId === q.groupId);
+      peers.forEach(p => rendered.add(p.id));
+      // Only render once per group
+    }
+    rendered.add(q.id);
+    cards.push(lsRenderGroup ? lsRenderGroup(q, idx) : '');
+  });
+  container.innerHTML = cards.join('') || '<p style="color:var(--text-muted);font-style:italic;">Nothing to preview.</p>';
+
+  // Restore appState
+  appState.test.flatQuestions = prevQs;
+  appState.test.answers       = prevAns;
+}
+
+/* ── Mode switch (Edit / Preview / JSON) ──────────────────────── */
+function adminSwitchLsMode(si, mode) {
+  const editPane    = document.getElementById(`ls-edit-${si}`);
+  const previewPane = document.getElementById(`ls-preview-${si}`);
+  const jsonPane    = document.getElementById(`ls-json-pane-${si}`);
+  const tabs        = document.querySelectorAll(`#ls-part-${si} .ls-mode-tab`);
+  if (!editPane) return;
+
+  editPane.style.display    = mode === 'edit'    ? '' : 'none';
+  if (previewPane) previewPane.style.display = mode === 'preview' ? '' : 'none';
+  if (jsonPane)    jsonPane.style.display    = mode === 'json'    ? '' : 'none';
+
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+
+  if (mode === 'preview') _lsRenderAdminPreview(si);
+  if (mode === 'json')    _lsJsonRefreshEditor(si);
 }
 
 /* ==============================================================
@@ -1287,11 +1588,41 @@ function _buildListeningEditor(data) {
             </div>
           </details>
         </div>
-        <div id="ls-qs-${si}">
-          ${sec.questions.map((q, qi) => _buildListeningQuestionRow(si, qi, q)).join('')}
+        <!-- Edit / Preview / JSON tabs -->
+        <div class="ls-editor-mode-tabs">
+          <button class="ls-mode-tab active" data-mode="edit"    onclick="adminSwitchLsMode(${si},'edit')">&#9998; Edit</button>
+          <button class="ls-mode-tab"        data-mode="preview" onclick="adminSwitchLsMode(${si},'preview')">&#128065; Preview</button>
+          <button class="ls-mode-tab"        data-mode="json"    onclick="adminSwitchLsMode(${si},'json')">&#123;&#125; JSON</button>
         </div>
-        <button class="btn btn-sm btn-outline admin-add-btn"
-          onclick="adminAddListeningQ(${si})">+ Add Question</button>
+
+        <!-- EDIT PANE -->
+        <div id="ls-edit-${si}">
+          <div id="ls-qs-${si}">
+            ${sec.questions.map((q, qi) => _buildListeningQuestionRow(si, qi, q)).join('')}
+          </div>
+          <button class="btn btn-sm btn-outline admin-add-btn"
+            onclick="adminAddListeningQ(${si})">+ Add Question</button>
+        </div>
+
+        <!-- PREVIEW PANE -->
+        <div id="ls-preview-${si}" style="display:none">
+          <div class="ls-admin-preview-wrap" id="ls-preview-content-${si}">
+            <p style="color:var(--text-muted);font-style:italic;">Switch to Preview to see student view.</p>
+          </div>
+        </div>
+
+        <!-- JSON PANE -->
+        <div id="ls-json-pane-${si}" style="display:none">
+          <div id="ls-json-error-${si}" class="ls-json-error" style="display:none"></div>
+          <textarea id="ls-json-live-${si}" class="admin-textarea ls-json-textarea"
+            rows="16" spellcheck="false"
+            oninput="_lsJsonOnInput(${si})"
+            placeholder='{"sections":[{"section_id":${si+1},"groups":[...]}]}'></textarea>
+          <div class="ls-json-pane-actions">
+            <button class="btn btn-sm btn-outline" onclick="adminCopyListeningJSON(${si})">&#128203; Copy JSON</button>
+            <button class="btn btn-sm btn-primary" onclick="adminExportListeningJSON(${si})">&#8675; Export .json</button>
+          </div>
+        </div>
       </div>
     </div>`
   ).join('');
@@ -1331,21 +1662,23 @@ function adminSetLsTimestamp(si, qi) {
 }
 
 const _LS_ALL_TYPES = [
-  ['short',              'Short Answer (fill blank)'],
-  ['mcq',                'MCQ – Single Choice'],
-  ['tfng',               'True / False / Not Given'],
-  ['multi',              'MCQ – Multiple Choice'],
-  ['matching',           'Matching (paragraph)'],
-  ['form_completion',    'Form Completion'],
-  ['note_completion',    'Note Completion'],
-  ['sentence_completion','Sentence Completion'],
-  ['table_completion',   'Table Completion'],
-  ['map_labeling',       'Map Labeling'],
-  ['diagram_labeling',   'Diagram Labeling'],
-  ['flow_chart',         'Flow Chart'],
+  ['short',               'Short Answer (fill blank)'],
+  ['mcq',                 'MCQ – Single Choice'],
+  ['tfng',                'True / False / Not Given'],
+  ['multi',               'MCQ – Multiple Choice'],
+  ['matching',            'Matching (paragraph)'],
+  ['form_completion',     'Form Completion'],
+  ['note_completion',     'Note Completion'],
+  ['sentence_completion', 'Sentence Completion'],
+  ['summary_completion',  'Summary Completion'],
+  ['table_completion',    'Table Completion'],
+  ['map_labeling',        'Map Labeling'],
+  ['diagram_labeling',    'Diagram Labeling'],
+  ['plan_labeling',       'Plan Labeling'],
+  ['flow_chart',          'Flow Chart'],
 ];
-const _LS_GFX_TYPES   = ['map_labeling','diagram_labeling'];
-const _LS_GROUP_TYPES = ['map_labeling','diagram_labeling','flow_chart','table_completion','form_completion','note_completion'];
+const _LS_GFX_TYPES   = ['map_labeling','diagram_labeling','plan_labeling'];
+const _LS_GROUP_TYPES = ['map_labeling','diagram_labeling','plan_labeling','flow_chart','table_completion','form_completion','note_completion','sentence_completion','summary_completion'];
 
 function _buildListeningQuestionRow(si, qi, q) {
   const type    = q.type || 'short';
@@ -1385,8 +1718,20 @@ function _buildListeningQuestionRow(si, qi, q) {
 
   const graphicSection = _LS_GFX_TYPES.includes(type) ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
-      <label class="admin-label">Image URL</label>
-      <input class="admin-input" id="ls-img-${si}-${qi}" value="${_esc(q.groupImage||'')}" placeholder="images/map.png">
+      <label class="admin-label">Image</label>
+      <div class="diag-upload-row">
+        <input class="admin-input" id="ls-img-${si}-${qi}" value="${_esc(q.groupImage||'')}"
+          placeholder="Paste URL, or upload ↓">
+        <input type="file" id="ls-img-file-${si}-${qi}" accept="image/*" style="display:none"
+          onchange="adminLsUploadImage(${si},${qi},this)">
+        <button class="btn btn-sm btn-outline" type="button"
+          onclick="document.getElementById('ls-img-file-${si}-${qi}').click()">&#8679; Upload</button>
+        <button class="btn btn-sm btn-primary" type="button"
+          onclick="adminLsDiagOpenModal(${si},${qi})">&#128506; Place Boxes</button>
+      </div>
+      <div id="ls-img-preview-${si}-${qi}" style="margin-top:0.4rem;">
+        ${q.groupImage ? `<img src="${_esc(q.groupImage)}" class="diag-img-preview" alt="Preview" style="max-height:80px;border-radius:4px;">` : ''}
+      </div>
     </div>
     <div class="admin-vocab-grid" style="margin-top:0.5rem;">
       <div class="admin-field-row">
@@ -1455,6 +1800,10 @@ function _buildListeningQuestionRow(si, qi, q) {
           value="${_esc(answer)}" placeholder="Correct answer">
       </div>
       ${optionsSection}${countSection}${graphicSection}${tableSection}${flowSection}${groupIdSection}
+      <div class="admin-field-row" style="margin-top:0.5rem;">
+        <label class="admin-label">Answer Rule <small style="color:var(--text-muted);">(optional — e.g. NO MORE THAN TWO WORDS)</small></label>
+        <input class="admin-input" id="ls-ansrule-${si}-${qi}" value="${_esc(q.answerRule||'')}" placeholder="e.g. NO MORE THAN TWO WORDS AND/OR A NUMBER">
+      </div>
       <div class="admin-field-row ls-timestamp-row" style="margin-top:0.5rem;">
         <label class="admin-label">Question Start <small style="color:var(--text-muted);">(seconds into audio)</small></label>
         <div style="display:flex;gap:0.4rem;align-items:center;">
@@ -1519,6 +1868,7 @@ function _collectListeningData() {
       const nodeNum    = parseInt(_val(`ls-node-${si}-${qi}`)) || 0;
       const prefix     = _val(`ls-prefix-${si}-${qi}`);
       const suffix     = _val(`ls-suffix-${si}-${qi}`);
+      const answerRule = _val(`ls-ansrule-${si}-${qi}`);
       const qsRaw = _val(`ls-qstart-${si}-${qi}`);
       const questionStart = qsRaw !== '' ? parseInt(qsRaw, 10) : NaN;
       questions.push({
@@ -1538,6 +1888,7 @@ function _collectListeningData() {
         ...(nodeNum     ? { nodeNum }    : {}),
         ...(prefix      ? { prefix }     : {}),
         ...(suffix      ? { suffix }     : {}),
+        ...(answerRule  ? { answerRule } : {}),
         ...(questionStart >= 0 && !isNaN(questionStart) ? { questionStart } : {}),
       });
       qi++;
@@ -3754,6 +4105,8 @@ let _diagModalPins    = [];   // [{id, qNum, answer, xPct, yPct, isNew}]
 let _diagModalNextId  = 0;
 let _diagDragging     = null; // {pinId, lastX, lastY}
 let _diagDragMoved    = false;
+let _diagModalContext = 'reading';  // 'reading' | 'listening'
+let _diagModalSi      = -1;        // section index when context = 'listening'
 
 /* ── Upload image → resize → Supabase Storage → fill URL field ── */
 function adminDiagUploadImage(pi, qi, input) {
@@ -3810,6 +4163,89 @@ function adminDiagUploadImage(pi, qi, input) {
   reader.readAsDataURL(file);
 }
 
+/* ── Listening image upload (mirrors adminDiagUploadImage for listening DOM IDs) ── */
+function adminLsUploadImage(si, qi, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) { showToast('File too large — please use an image under 20 MB.'); return; }
+
+  const uploadBtn = input.nextElementSibling;
+  if (uploadBtn) { uploadBtn.disabled = true; uploadBtn.textContent = 'Uploading…'; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const MAX_W = 1400, MAX_H = 1000;
+      let w = img.width, h = img.height;
+      if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+      if (h > MAX_H) { w = Math.round(w * MAX_H / h); h = MAX_H; }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      cv.toBlob(async function(blob) {
+        try {
+          const publicUrl = await db.uploadImage(blob, file.name);
+          const urlInput  = document.getElementById(`ls-img-${si}-${qi}`);
+          if (urlInput) urlInput.value = publicUrl;
+          const previewEl = document.getElementById(`ls-img-preview-${si}-${qi}`);
+          if (previewEl) {
+            previewEl.innerHTML = `<img src="${publicUrl}" class="diag-img-preview" alt="Preview" style="max-height:80px;border-radius:4px;">`;
+          }
+          showToast('Image uploaded successfully.');
+        } catch(err) {
+          showToast('Upload failed: ' + (err.message || 'Check Supabase "media" bucket is public.'));
+        } finally {
+          if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.textContent = '⇧ Upload'; }
+          input.value = '';
+        }
+      }, 'image/jpeg', 0.85);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── Open diagram placement modal for a LISTENING graphic question ── */
+function adminLsDiagOpenModal(si, qi) {
+  const data = _collectListeningData();
+  const sec  = data.sections[si];
+  if (!sec) return;
+  const q = sec.questions[qi];
+  if (!q) return;
+
+  const imgUrl  = _val(`ls-img-${si}-${qi}`) || q.groupImage || '';
+  const groupId = q.groupId || `grp_ls_s${si}_q${qi}_${Date.now()}`;
+
+  // Collect all peers with the same groupId (or just this question if solo)
+  const peers = groupId
+    ? sec.questions.filter(p => p.groupId === groupId)
+    : [q];
+
+  _diagModalContext = 'listening';
+  _diagModalSi      = si;
+  _diagModalPi      = -1;
+  _diagModalGroupId = groupId;
+  _diagModalImgUrl  = imgUrl;
+  _diagModalPins    = peers.map((p, i) => ({
+    id:     p.id || `lspin_${si}_${i}_${Date.now()}`,
+    qNum:   p.qNum || (i + 1),
+    answer: p.answer || '',
+    xPct:   p.xPct || 0,
+    yPct:   p.yPct || 0,
+    isNew:  false,
+    questionStart: p.questionStart || 0,
+  }));
+  _diagModalNextId = _diagModalPins.length;
+
+  _diagEnsureModal();
+  const modal = document.getElementById('diagPlacementModal');
+  const imgEl = document.getElementById('diagPlacementImg');
+  imgEl.src   = imgUrl;
+  modal.style.display = 'flex';
+  _diagRenderPins();
+}
+
 /* ── Build / show modal ── */
 function _diagEnsureModal() {
   if (document.getElementById('diagPlacementModal')) return;
@@ -3860,6 +4296,8 @@ function adminDiagOpenModal(pi, qi) {
   if (!groupId) { showToast('Set a Group ID first.'); return; }
   if (!imgUrl)  { showToast('Upload or enter an image URL first.'); return; }
 
+  _diagModalContext = 'reading';
+  _diagModalSi      = -1;
   _diagModalPi      = pi;
   _diagModalGroupId = groupId;
   _diagModalImgUrl  = imgUrl;
@@ -4020,8 +4458,39 @@ function adminDiagUpdateQNum(pinId, val) {
   if (sm) sm.textContent = pin.qNum;
 }
 
-/* ── Save placements back to reading editor ── */
+/* ── Save placements back to editor (reading or listening) ── */
 function adminDiagSavePlacements() {
+  if (_diagModalContext === 'listening') {
+    // ── Listening path ──
+    const data = _collectListeningData();
+    const sec  = data.sections[_diagModalSi];
+    if (!sec) return;
+    // Determine type from existing group questions, default to map_labeling
+    const existingType = (sec.questions.find(q => q.groupId === _diagModalGroupId) || {}).type || 'map_labeling';
+    // Remove old group questions, keep others
+    sec.questions = sec.questions.filter(q => q.groupId !== _diagModalGroupId);
+    // Add updated pins
+    _diagModalPins.forEach((pin, i) => {
+      sec.questions.push({
+        id:            pin.isNew ? `lspin_${_diagModalSi}_${i}_${Date.now()}` : pin.id,
+        qNum:          pin.qNum,
+        type:          existingType,
+        text:          pin.answer || '',
+        answer:        pin.answer || '',
+        groupId:       _diagModalGroupId,
+        groupImage:    _diagModalImgUrl,
+        xPct:          pin.xPct,
+        yPct:          pin.yPct,
+        questionStart: pin.questionStart || 0,
+      });
+    });
+    adminDiagCloseModal();
+    _applyListeningEditorState(data);
+    showToast(`Saved ${_diagModalPins.length} box(es).`);
+    return;
+  }
+
+  // ── Reading path (original) ──
   const d = _collectReadingData();
   const passage = d.passages[_diagModalPi];
   if (!passage) return;
