@@ -539,7 +539,7 @@ function _buildLogin() {
   return `
   <div class="admin-login-wrap">
     <div class="admin-login-box">
-      <img src="Logo.png" alt="Learn With Trang" class="admin-login-logo">
+      <img src="../assets/Logo.png" alt="Learn With Trang" class="admin-login-logo">
       <h2>Admin Panel</h2>
       <p>Sign in with your admin account to manage content</p>
       <input type="email"    id="adminEmailInput" class="admin-input admin-login-field" placeholder="Email address">

@@ -59,8 +59,17 @@ The admin panel is accessible via the **Admin** tab. Credentials are managed thr
 ```
 TrangProject/
 ├── index.html              Landing page
-├── app.html                Main SPA (all tabs)
-├── Logo.png                Brand logo
+│
+├── pages/
+│   ├── app.html            Main SPA (all tabs)
+│   └── change-password.html  Password reset page
+│
+├── assets/
+│   ├── Logo.png            Brand logo
+│   └── Face.jpg            Instructor photo
+│
+├── database/
+│   └── schema.sql          Supabase database schema (local only, gitignored)
 │
 ├── css/
 │   ├── shared.css          Global theme, variables, navbar, buttons

@@ -2,7 +2,7 @@ Resources/myenv/
 Resources/Cam18/Cam18.pdf
 
 # Database schema — keep local only
-schema.sql
+database/schema.sql
 
 # Claude Code internal files
 CLAUDE.md

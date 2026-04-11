@@ -6,20 +6,20 @@
   <title>Learn With Trang — IELTS Practice Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/shared.css" />
-  <link rel="stylesheet" href="css/dashboard.css" />
-  <link rel="stylesheet" href="css/mock-test.css" />
-  <link rel="stylesheet" href="css/practice.css" />
-  <link rel="stylesheet" href="css/review.css" />
-  <link rel="stylesheet" href="css/admin.css" />
-  <link rel="stylesheet" href="css/live-quiz.css" />
+  <link rel="stylesheet" href="../css/shared.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <link rel="stylesheet" href="../css/mock-test.css" />
+  <link rel="stylesheet" href="../css/practice.css" />
+  <link rel="stylesheet" href="../css/review.css" />
+  <link rel="stylesheet" href="../css/admin.css" />
+  <link rel="stylesheet" href="../css/live-quiz.css" />
 </head>
 <body>
 
   <!-- ===== NAVIGATION ===== -->
   <nav class="navbar">
-    <a class="nav-brand" href="index.html">
-      <img src="Logo.png" alt="Learn With Trang" class="brand-logo-img">
+    <a class="nav-brand" href="../index.html">
+      <img src="../assets/Logo.png" alt="Learn With Trang" class="brand-logo-img">
       <span class="brand-name">Learn With Trang</span>
     </a>
     <ul class="nav-tabs" id="navTabs">
@@ -38,7 +38,7 @@
   <div class="auth-modal-overlay" id="authModal" style="display:none;">
     <div class="auth-modal-box">
       <button class="auth-modal-close" onclick="closeAuthModal()">&#10005;</button>
-      <img src="Logo.png" alt="Learn With Trang" class="admin-login-logo">
+      <img src="../assets/Logo.png" alt="Learn With Trang" class="admin-login-logo">
       <h2>Student Account</h2>
       <div class="auth-tabs">
         <button class="auth-tab active" id="authTabLogin"    onclick="switchAuthTab('login')">Sign In</button>
@@ -495,18 +495,18 @@
 
   <!-- Supabase JS client (must load before db.js and shared.js) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/db.js"></script>
-  <script src="js/shared.js"></script>
-  <script src="js/data-test.js"></script>
-  <script src="js/data-cam18.js"></script>
-  <script src="js/data-practice.js"></script>
-  <script src="js/dashboard.js"></script>
-  <script src="js/mock-test.js"></script>
-  <script src="js/practice.js"></script>
-  <script src="js/review.js"></script>
-  <script src="js/admin.js"></script>
-  <script src="js/auth.js"></script>
+  <script src="../js/db.js"></script>
+  <script src="../js/shared.js"></script>
+  <script src="../js/data-test.js"></script>
+  <script src="../js/data-cam18.js"></script>
+  <script src="../js/data-practice.js"></script>
+  <script src="../js/dashboard.js"></script>
+  <script src="../js/mock-test.js"></script>
+  <script src="../js/practice.js"></script>
+  <script src="../js/review.js"></script>
+  <script src="../js/admin.js"></script>
+  <script src="../js/auth.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="js/live-quiz.js"></script>
+  <script src="../js/live-quiz.js"></script>
 </body>
 </html>
