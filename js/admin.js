@@ -776,102 +776,311 @@ const LISTENING_JSON_SCHEMA = `{
   ]
 }`;
 
-const READING_JSON_SCHEMA = `{
+const READING_JSON_SCHEMA = `
+==============================================================
+  IELTS READING — JSON IMPORT SCHEMA
+  Paste into Admin → Reading Editor → Import JSON
+==============================================================
+
+RULES:
+- "groups" is an array of question groups for one passage.
+- Each group has a "type" and "questions" (or "labels" for diagram).
+- "id" values must be unique integers across the whole passage.
+- "answer" is the exact correct answer string (or array for multiple_select).
+- "answerRule" is shown as a hint to students (e.g. "NO MORE THAN TWO WORDS").
+- "paragraphRef" is optional — the letter of the passage paragraph (A, B, C…)
+  where the answer can be found, used for highlighting.
+
+--------------------------------------------------------------
+SUPPORTED TYPES
+--------------------------------------------------------------
+
+1. true_false_not_given
+   answer: "TRUE" | "FALSE" | "NOT GIVEN"
+
+2. yes_no_not_given
+   answer: "YES" | "NO" | "NOT GIVEN"
+
+3. multiple_choice  (choose ONE)
+   answer: single letter  e.g. "B"
+   options: array of full option strings
+
+4. multiple_select  (choose N)
+   answer: array of letters  e.g. ["B","D"]
+   count: number of correct answers
+   options: array of full option strings
+
+5. matching_headings
+   Each question = one paragraph.
+   answer: the letter of the correct heading  e.g. "C"
+   options: shared array of heading strings (same for all questions in group)
+
+6. matching_information  (NB — paragraph matching)
+   Each question = one piece of information to locate.
+   answer: paragraph letter  e.g. "D"
+   options: ["A","B","C","D","E","F"]  (or full paragraph summaries)
+
+7. matching_features
+   Each question = one feature to match to a person/category.
+   answer: letter of the matching item  e.g. "B"
+   options: array of people/categories
+
+8. matching_sentence_endings
+   Each question = sentence beginning to complete.
+   answer: letter of the correct ending  e.g. "E"
+   options: array of sentence endings
+
+9. sentence_completion
+   Each question = one sentence with a blank.
+   answer: word(s) from the passage
+   answerRule: e.g. "NO MORE THAN TWO WORDS"
+
+10. summary_completion
+    Each question = one blank in a summary paragraph.
+    answer: word(s) from the passage
+    answerRule: e.g. "ONE WORD ONLY"
+
+11. completion  (inline blanks embedded inside a block of text)
+    No "questions" array — use "content" array instead.
+    content: alternating text tokens and blank tokens.
+    answerRule: e.g. "NO MORE THAN TWO WORDS AND/OR A NUMBER"
+    *** See example below ***
+
+12. table_completion
+    groupId: unique string shared by all questions in this table.
+    Each question = one blank cell.
+    "row": row label, "col": column header
+    answer: word(s) from the passage
+
+13. diagram_labeling
+    groupId: unique string shared by all labels.
+    image: URL to the diagram image.
+    Use "labels" array (not "questions").
+    "x" and "y": percentage position of the input on the image (0–100).
+    answer: word(s) from the passage
+
+--------------------------------------------------------------
+FULL EXAMPLE
+--------------------------------------------------------------
+{
   "passages": [
     {
       "passage_id": 1,
-      "title": "Passage title",
-      "text": "<p>Passage HTML...</p>",
+      "title": "The Science of Sleep",
+      "text": "<p>Sleep is a complex biological process...</p><p>During REM sleep...</p>",
       "groups": [
+
         {
           "type": "true_false_not_given",
-          "instructions": "Do the following statements agree with the information in the Reading Passage? Write TRUE, FALSE or NOT GIVEN.",
+          "instructions": "Do the following statements agree with the information given in the Reading Passage? Write TRUE if the statement agrees, FALSE if it contradicts, or NOT GIVEN if there is no information.",
           "questions": [
-            { "id": 1, "text": "Statement text here.", "answer": "TRUE", "paragraphRef": "A" }
+            { "id": 1, "text": "Adults need at least nine hours of sleep per night.", "answer": "FALSE", "paragraphRef": "A" },
+            { "id": 2, "text": "REM sleep occurs multiple times in one night.", "answer": "TRUE", "paragraphRef": "B" },
+            { "id": 3, "text": "Dreaming has been linked to improved memory.", "answer": "NOT GIVEN" }
           ]
         },
+
+        {
+          "type": "yes_no_not_given",
+          "instructions": "Do the following statements agree with the views of the writer? Write YES, NO or NOT GIVEN.",
+          "questions": [
+            { "id": 4, "text": "The writer believes modern society undervalues sleep.", "answer": "YES", "paragraphRef": "C" },
+            { "id": 5, "text": "Technology is the primary cause of sleep disorders.", "answer": "NO", "paragraphRef": "D" }
+          ]
+        },
+
         {
           "type": "multiple_choice",
           "instructions": "Choose the correct letter A, B, C or D.",
           "questions": [
-            { "id": 7, "text": "Question stem...", "answer": "B",
-              "options": ["A. First option", "B. Second option", "C. Third option", "D. Fourth option"] }
+            {
+              "id": 6,
+              "text": "According to the passage, which of the following best describes the role of deep sleep?",
+              "answer": "C",
+              "options": [
+                "A. It helps regulate body temperature.",
+                "B. It is when most dreaming occurs.",
+                "C. It is essential for physical restoration.",
+                "D. It lasts longer than REM sleep."
+              ]
+            }
           ]
         },
+
         {
           "type": "multiple_select",
-          "instructions": "Choose TWO letters A–E.",
+          "instructions": "Choose TWO letters A–E. Which TWO benefits of sleep are mentioned in the passage?",
           "count": 2,
           "questions": [
-            { "id": 10, "text": "Which TWO features are mentioned?", "answer": ["B", "D"],
-              "options": ["A. option", "B. option", "C. option", "D. option", "E. option"] }
+            {
+              "id": 7,
+              "text": "Which TWO benefits of sleep are mentioned?",
+              "answer": ["B", "D"],
+              "options": [
+                "A. Improved eyesight",
+                "B. Strengthened immune system",
+                "C. Faster reaction times",
+                "D. Enhanced memory consolidation",
+                "E. Reduced appetite"
+              ]
+            }
           ]
         },
-        {
-          "type": "yes_no_not_given",
-          "instructions": "Do the following statements agree with the claims of the writer? Write YES, NO or NOT GIVEN.",
-          "questions": [
-            { "id": 14, "text": "The writer believes X is beneficial.", "answer": "YES", "paragraphRef": "C" }
-          ]
-        },
+
         {
           "type": "matching_headings",
-          "instructions": "Match each paragraph with the correct heading. NB You may use any heading more than once.",
+          "instructions": "The Reading Passage has seven paragraphs A–G. Choose the correct heading for each paragraph from the list below.",
+          "options": [
+            "i. The evolutionary origins of sleep",
+            "ii. How technology disrupts sleep patterns",
+            "iii. The stages of a sleep cycle",
+            "iv. Cultural attitudes towards napping",
+            "v. The role of sleep in memory formation",
+            "vi. Consequences of chronic sleep deprivation",
+            "vii. Recommended sleep duration by age group"
+          ],
           "questions": [
-            { "id": 20, "text": "Paragraph A", "answer": "vi",
-              "options": ["i. heading one", "ii. heading two", "iii. heading three", "iv. heading four", "v. heading five", "vi. heading six"] }
+            { "id": 8,  "text": "Paragraph A", "answer": "iii" },
+            { "id": 9,  "text": "Paragraph B", "answer": "v"   },
+            { "id": 10, "text": "Paragraph C", "answer": "vi"  }
           ]
         },
+
         {
           "type": "matching_information",
-          "instructions": "Which paragraph contains the following information?",
+          "instructions": "The Reading Passage has six paragraphs A–F. Which paragraph contains the following information? You may use any letter more than once.",
+          "options": ["A","B","C","D","E","F"],
           "questions": [
-            { "id": 26, "text": "A reference to historical evidence", "answer": "C",
-              "options": ["A","B","C","D","E","F"] }
+            { "id": 11, "text": "A comparison between sleep patterns in different age groups.", "answer": "B" },
+            { "id": 12, "text": "A reference to a specific scientific study on sleep deprivation.", "answer": "E" },
+            { "id": 13, "text": "An explanation of why people dream.", "answer": "C" }
           ]
         },
+
+        {
+          "type": "matching_features",
+          "instructions": "Match each research finding with the correct scientist. NB You may use any letter more than once.",
+          "options": [
+            "A. Dr Sarah Chen",
+            "B. Professor James Liu",
+            "C. Dr Maria Costa",
+            "D. Professor Ahmed Khan"
+          ],
+          "questions": [
+            { "id": 14, "text": "Identified a gene linked to short sleep duration.", "answer": "A" },
+            { "id": 15, "text": "Proposed that sleep serves a waste-removal function.", "answer": "C" },
+            { "id": 16, "text": "First measured REM sleep in a laboratory setting.", "answer": "B" }
+          ]
+        },
+
+        {
+          "type": "matching_sentence_endings",
+          "instructions": "Complete each sentence with the correct ending A–F.",
+          "options": [
+            "A. is associated with better academic performance.",
+            "B. can lead to long-term cardiovascular disease.",
+            "C. reduces the effectiveness of vaccines.",
+            "D. improves emotional regulation.",
+            "E. has no proven effect on metabolism.",
+            "F. was first documented in the nineteenth century."
+          ],
+          "questions": [
+            { "id": 17, "text": "Regularly sleeping fewer than six hours per night", "answer": "B" },
+            { "id": 18, "text": "Getting sufficient deep sleep each night", "answer": "D" }
+          ]
+        },
+
         {
           "type": "sentence_completion",
-          "instructions": "Complete the sentences below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER from the passage.",
+          "instructions": "Complete the sentences below. Write NO MORE THAN TWO WORDS from the passage for each answer.",
+          "answerRule": "NO MORE THAN TWO WORDS",
           "questions": [
-            { "id": 31, "text": "The main cause of X is ________.", "answer": "climate change" }
+            { "id": 19, "text": "The brain consolidates memories during a phase known as ________.", "answer": "slow-wave sleep", "paragraphRef": "B" },
+            { "id": 20, "text": "Researchers found that sleep deprivation impairs ________ more than physical performance.", "answer": "cognitive function", "paragraphRef": "D" }
           ]
         },
+
         {
           "type": "summary_completion",
-          "instructions": "Complete the summary below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+          "instructions": "Complete the summary below. Choose NO MORE THAN ONE WORD from the passage for each answer.",
+          "answerRule": "ONE WORD ONLY",
           "questions": [
-            { "id": 35, "text": "Researchers found that ________ played a key role.", "answer": "microbes" }
+            { "id": 21, "text": "Sleep deprivation affects the body's ability to produce ________, which fights infection.", "answer": "antibodies" },
+            { "id": 22, "text": "The brain's ________ system is activated during deep sleep to remove toxins.", "answer": "glymphatic" }
           ]
         },
+
+        {
+          "type": "completion",
+          "instructions": "Complete the notes below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER from the passage for each answer.",
+          "answerRule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
+          "content": [
+            { "type": "text",  "value": "Sleep cycles last approximately " },
+            { "type": "blank", "id": "23" },
+            { "type": "text",  "value": " minutes and repeat " },
+            { "type": "blank", "id": "24" },
+            { "type": "text",  "value": " times per night. During REM sleep, the brain shows activity similar to the " },
+            { "type": "blank", "id": "25" },
+            { "type": "text",  "value": " state." }
+          ],
+          "questions": [
+            { "id": "23", "answer": "90" },
+            { "id": "24", "answer": "4 to 6/four to six" },
+            { "id": "25", "answer": "waking" }
+          ]
+        },
+
         {
           "type": "table_completion",
-          "instructions": "Complete the table below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER.",
-          "groupId": "tbl_p1_g1",
-          "columns": ["Category", "Finding"],
+          "instructions": "Complete the table below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER from the passage.",
+          "groupId": "tbl_sleep_stages",
+          "columns": ["Sleep Stage", "Brain Wave", "Key Function"],
           "questions": [
-            { "id": 38, "row": "Method A", "col": "Finding", "answer": "cost effective" },
-            { "id": 39, "row": "Method B", "col": "Finding", "answer": "time consuming" }
+            { "id": 26, "row": "Stage 1", "col": "Brain Wave",   "answer": "alpha waves"  },
+            { "id": 27, "row": "Stage 1", "col": "Key Function", "answer": "light sleep"   },
+            { "id": 28, "row": "Stage 3", "col": "Brain Wave",   "answer": "delta waves"   },
+            { "id": 29, "row": "Stage 3", "col": "Key Function", "answer": "cell repair"   },
+            { "id": 30, "row": "REM",     "col": "Brain Wave",   "answer": "mixed frequency" }
           ]
         },
+
         {
           "type": "diagram_labeling",
-          "instructions": "Label the diagram below. Write NO MORE THAN TWO WORDS from the passage.",
-          "groupId": "diag_p1_g1",
-          "image": "images/diagram.png",
+          "instructions": "Label the diagram of the sleep cycle. Write NO MORE THAN TWO WORDS from the passage.",
+          "groupId": "diag_sleep_cycle",
+          "image": "Resources/sleep-cycle.png",
           "labels": [
-            { "id": 40, "x": 22, "y": 35, "answer": "filter membrane" },
-            { "id": 41, "x": 60, "y": 55, "answer": "storage tank" }
+            { "id": 31, "x": 15, "y": 30, "answer": "light sleep" },
+            { "id": 32, "x": 45, "y": 65, "answer": "deep sleep"  },
+            { "id": 33, "x": 78, "y": 25, "answer": "REM sleep"   }
           ]
         }
+
       ]
     }
   ]
 }
-/* Supported types:
-   true_false_not_given | yes_no_not_given | multiple_choice | multiple_select
-   matching_headings | matching_information | matching_features
-   sentence_completion | summary_completion | table_completion | diagram_labeling */`;
+
+==============================================================
+  NOTES FOR CHATGPT PROMPT
+==============================================================
+When asking ChatGPT to generate questions, use this prompt template:
+
+"Generate an IELTS Reading question set for the passage below.
+Output valid JSON matching this exact schema. Use question IDs as
+consecutive integers starting from [N]. Include a mix of these types:
+true_false_not_given, matching_headings, sentence_completion, and
+summary_completion. Passage: [paste passage here]"
+
+- For matching_headings: put the shared options array on the GROUP,
+  not on individual questions.
+- For completion (inline): use the "content" array with alternating
+  text/blank tokens. List answer keys separately in "questions".
+- For table_completion: every blank cell needs its own question entry
+  with matching "row" and "col" values.
+- Slash-separated answers are accepted for short/completion types
+  e.g. "cost effective/cost-effective"
+==============================================================`;
 
 const WRITING_JSON_SCHEMA = `{
   "tasks": [
