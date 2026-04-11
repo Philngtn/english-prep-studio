@@ -1411,15 +1411,21 @@ function _buildReadingEditor(data) {
 }
 
 const _RD_ALL_TYPES = [
-  ['tfng',               'True / False / Not Given'],
-  ['ynng',               'Yes / No / Not Given'],
-  ['mcq',                'Multiple Choice (single)'],
-  ['multi',              'Multiple Choice (multi)'],
-  ['matching',           'Matching (headings/info/features)'],
-  ['short',              'Short Answer / Sentence Completion'],
-  ['summary_completion', 'Summary Completion'],
-  ['table_completion',   'Table Completion'],
-  ['diagram_labeling',   'Diagram Labeling'],
+  ['tfng',                      'True / False / Not Given'],
+  ['ynng',                      'Yes / No / Not Given'],
+  ['mcq',                       'Multiple Choice (single)'],
+  ['multi',                     'Multiple Choice (multi)'],
+  ['matching_headings',         'Matching — Headings'],
+  ['matching_information',      'Matching — Information (NB)'],
+  ['matching_features',         'Matching — Features'],
+  ['matching_sentence_endings', 'Matching — Sentence Endings'],
+  ['matching',                  'Matching (generic)'],
+  ['short',                     'Short Answer'],
+  ['sentence_completion',       'Sentence Completion'],
+  ['summary_completion',        'Summary / Note Completion'],
+  ['completion',                'Inline Completion (blanks in text)'],
+  ['table_completion',          'Table Completion'],
+  ['diagram_labeling',          'Diagram Labeling'],
 ];
 
 function _buildReadingQuestionRow(pi, qi, q) {
@@ -1438,11 +1444,31 @@ function _buildReadingQuestionRow(pi, qi, q) {
                    : type === 'multi' ? ' (e.g. B, D)'
                    : type === 'mcq'   ? ' (e.g. B)' : '';
 
-  const optionsSection = (type === 'mcq' || type === 'multi' || type === 'matching') ? `
+  const isMatchingType = type === 'matching' || type === 'matching_headings' ||
+    type === 'matching_information' || type === 'matching_features' ||
+    type === 'matching_sentence_endings';
+
+  const optionsSection = (type === 'mcq' || type === 'multi' || isMatchingType) ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
-      <label class="admin-label">Options (one per line)</label>
+      <label class="admin-label">Options (one per line${isMatchingType ? ' — full heading/paragraph text or just letter' : ''})</label>
       <textarea class="admin-textarea" id="rd-opts-${pi}-${qi}" rows="4"
         placeholder="A. First option&#10;B. Second option&#10;...">${_esc(options.join('\n'))}</textarea>
+    </div>` : '';
+
+  const completionSection = type === 'completion' ? `
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Content tokens (JSON array) <small style="color:var(--text-muted)">— <code>{"type":"text","value":"…"}</code> or <code>{"type":"blank","id":"7"}</code></small></label>
+      <textarea class="admin-textarea" id="rd-content-${pi}-${qi}" rows="5"
+        style="font-family:monospace;font-size:0.78rem;"
+        placeholder='[{"type":"text","value":"Urban farms have grown in "},{"type":"blank","id":"6"},{"type":"text","value":" cities."}]'>${_esc(q.content ? JSON.stringify(q.content) : '')}</textarea>
+    </div>` : '';
+
+  const answerRuleSection = (type === 'short' || type === 'sentence_completion' ||
+    type === 'summary_completion' || type === 'completion') ? `
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Answer Rule <small style="color:var(--text-muted);">(e.g. NO MORE THAN TWO WORDS)</small></label>
+      <input class="admin-input" id="rd-ansrule-${pi}-${qi}" value="${_esc(q.answerRule||'')}"
+        placeholder="NO MORE THAN TWO WORDS AND/OR A NUMBER">
     </div>` : '';
 
   const countSection = type === 'multi' ? `
@@ -1520,7 +1546,7 @@ function _buildReadingQuestionRow(pi, qi, q) {
         <input class="admin-input" id="rd-ans-${pi}-${qi}"
           value="${_esc(answer)}" placeholder="Correct answer">
       </div>
-      ${optionsSection}${countSection}${graphicSection}${tableSection}${groupIdSection}${instructionsSection}${paraRefSection}
+      ${optionsSection}${countSection}${completionSection}${answerRuleSection}${graphicSection}${tableSection}${groupIdSection}${instructionsSection}${paraRefSection}
     </div>`;
 }
 
@@ -1531,8 +1557,11 @@ function _rdGroupsToFlat(passage, pi) {
     const typeMap = {
       multiple_choice: 'mcq', multiple_select: 'multi',
       true_false_not_given: 'tfng', yes_no_not_given: 'ynng',
-      matching_headings: 'matching', matching_information: 'matching',
-      matching_features: 'matching', sentence_completion: 'short',
+      matching_headings: 'matching_headings',
+      matching_information: 'matching_information',
+      matching_features: 'matching_features',
+      matching_sentence_endings: 'matching_sentence_endings',
+      sentence_completion: 'sentence_completion',
       summary_completion: 'summary_completion',
       table_completion: 'table_completion', diagram_labeling: 'diagram_labeling',
     };
@@ -1633,6 +1662,12 @@ function _collectReadingData() {
       const colContext   = _val(`rd-col-${pi}-${qi}`);
       const instructions = _val(`rd-instr-${pi}-${qi}`);
       const paragraphRef = _val(`rd-para-${pi}-${qi}`);
+      const answerRule   = _val(`rd-ansrule-${pi}-${qi}`);
+      const rawContent   = _val(`rd-content-${pi}-${qi}`);
+      let content = null;
+      if (type === 'completion' && rawContent) {
+        try { content = JSON.parse(rawContent); } catch(e) { /* leave null */ }
+      }
       const answer = type === 'multi'
         ? rawAns.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
         : rawAns.trim();
@@ -1642,6 +1677,8 @@ function _collectReadingData() {
         type, text: qText, answer,
         ...(options.length      ? { options }      : {}),
         ...(type === 'multi'    ? { count }         : {}),
+        ...(content             ? { content }       : {}),
+        ...(answerRule          ? { answerRule }    : {}),
         ...(groupId             ? { groupId }       : {}),
         ...(groupImage          ? { groupImage }    : {}),
         ...(xPct                ? { xPct }          : {}),

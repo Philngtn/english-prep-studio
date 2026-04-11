@@ -397,7 +397,7 @@ iframe.listening-audio-player { height: 80px; }
 .answer-correct-val { font-weight: 700; color: var(--success); }
 
 /* ============================================================
-   ===== READING — INSTRUCTIONS BLOCK =====
+   ===== READING — INSTRUCTIONS & ANSWER RULE =====
    ============================================================ */
 .rd-instructions {
   background: var(--sidebar-bg); border-left: 3px solid var(--primary);
@@ -405,6 +405,143 @@ iframe.listening-audio-player { height: 80px; }
   font-size: 0.88rem; color: var(--text-muted); margin-bottom: 0.75rem;
   font-style: italic;
 }
+.rd-answer-rule {
+  display: inline-block; font-size: 0.78rem; font-weight: 700;
+  color: var(--primary); background: var(--primary-l);
+  border: 1px solid var(--border-d); border-radius: 5px;
+  padding: 0.15rem 0.55rem; margin-bottom: 0.6rem; letter-spacing: 0.02em;
+}
+
+/* ============================================================
+   ===== READING — TFNG BUTTONS =====
+   ============================================================ */
+.rd-tfng-opts { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem; }
+.rd-tfng-btn {
+  padding: 0.4rem 1.1rem; border-radius: 8px;
+  border: 2px solid var(--border); background: #fff;
+  font-weight: 600; cursor: pointer; font-size: 0.88rem;
+  transition: all 0.15s; color: var(--text);
+}
+.rd-tfng-btn:hover { border-color: var(--primary); background: var(--primary-l); }
+.rd-tfng-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.rd-tfng-btn--active { background: var(--primary-l); border-color: var(--primary); color: var(--primary); }
+
+/* ============================================================
+   ===== READING — MATCHING DROPDOWN =====
+   ============================================================ */
+.rd-option-bank {
+  background: var(--sidebar-bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.65rem 0.9rem;
+  margin-bottom: 0.75rem;
+}
+.rd-option-bank-header {
+  font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem;
+}
+.rd-option-bank-list { list-style: none; display: flex; flex-direction: column; gap: 0.25rem; }
+.rd-option-bank-item { display: flex; gap: 0.4rem; font-size: 0.88rem; line-height: 1.45; }
+.rd-opt-letter { font-weight: 800; color: var(--primary); min-width: 1.4rem; flex-shrink: 0; }
+.rd-opt-text   { color: var(--text); }
+.rd-matching-sel {
+  width: 100%; max-width: 280px; padding: 0.45rem 0.75rem;
+  border: 2px solid var(--border); border-radius: 8px;
+  font-size: 0.92rem; color: var(--text); background: #fff;
+  cursor: pointer; transition: border-color 0.15s; margin-top: 0.25rem;
+}
+.rd-matching-sel:focus { outline: none; border-color: var(--primary); }
+
+/* ============================================================
+   ===== READING — INLINE COMPLETION =====
+   ============================================================ */
+.rd-inline-content {
+  font-size: 0.95rem; line-height: 2.4; word-break: break-word;
+}
+.rd-blank-wrap {
+  display: inline-flex; flex-direction: column; align-items: center;
+  vertical-align: bottom; margin: 0 0.15rem; position: relative;
+}
+.rd-blank-num {
+  font-size: 0.62rem; font-weight: 700; color: var(--primary);
+  position: absolute; top: -1rem; left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+}
+.rd-blank-input {
+  width: 130px; padding: 0.1rem 0.4rem;
+  border: none; border-bottom: 2px solid var(--primary);
+  background: transparent; font-size: 0.93rem; font-family: inherit;
+  text-align: center; transition: border-color 0.15s;
+}
+.rd-blank-input:focus { outline: none; border-bottom-color: var(--primary-d); }
+.rd-blank-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ============================================================
+   ===== READING — TABLE COMPLETION =====
+   ============================================================ */
+.rd-table-wrap { overflow-x: auto; margin-top: 0.5rem; }
+.rd-completion-table {
+  width: 100%; border-collapse: collapse; font-size: 0.9rem;
+}
+.rd-completion-table th {
+  background: var(--sidebar-bg); font-weight: 700;
+  padding: 0.5rem 0.75rem; border: 1px solid var(--border);
+  text-align: left; font-size: 0.82rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.rd-completion-table td {
+  padding: 0.4rem 0.7rem; border: 1px solid var(--border); vertical-align: middle;
+}
+.rd-table-row-label { font-weight: 600; background: var(--sidebar-bg); white-space: nowrap; }
+.rd-table-input {
+  width: 100%; min-width: 90px; padding: 0.2rem 0.3rem;
+  border: none; border-bottom: 2px solid var(--primary);
+  background: transparent; font-size: 0.9rem; font-family: inherit;
+  transition: border-color 0.15s;
+}
+.rd-table-input:focus { outline: none; border-bottom-color: var(--primary-d); }
+.rd-table-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ============================================================
+   ===== READING — DIAGRAM LABELING =====
+   ============================================================ */
+.rd-image-wrap {
+  position: relative; display: block; user-select: none;
+  max-width: 100%; overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  margin: 0.75rem 0;
+}
+.rd-diagram-img { width: 100%; height: auto; display: block; }
+.rd-diagram-blank {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.rd-diagram-label {
+  font-size: 0.62rem; font-weight: 800; color: var(--primary);
+  background: rgba(255,255,255,0.9); border-radius: 3px;
+  padding: 0 3px; line-height: 1.4;
+}
+.rd-diagram-input {
+  width: 90px; padding: 0.18rem 0.35rem; text-align: center;
+  border: 1.5px solid var(--primary); border-radius: 5px;
+  background: rgba(255,255,255,0.92); font-size: 0.8rem; font-family: inherit;
+  transition: border-color 0.15s;
+}
+.rd-diagram-input:focus { outline: none; border-color: var(--primary-d); box-shadow: 0 0 0 2px rgba(244,114,182,0.2); }
+.rd-diagram-prompts { margin-top: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.rd-diagram-prompt { font-size: 0.88rem; color: var(--text); }
+.rd-no-image {
+  padding: 1.5rem; text-align: center; color: var(--text-muted);
+  background: var(--sidebar-bg); border-radius: var(--radius-sm);
+  font-size: 0.88rem; border: 1px dashed var(--border-d);
+}
+
+/* ============================================================
+   ===== READING — FORM LIST (fallback group) =====
+   ============================================================ */
+.rd-form-group { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.25rem; }
+.rd-form-field { display: flex; align-items: baseline; gap: 0.6rem; }
+.rd-form-num   { font-weight: 800; color: var(--primary); flex-shrink: 0; min-width: 1.4rem; font-size: 0.9rem; }
+.rd-form-label { font-size: 0.93rem; flex: 1; }
+.rd-form-input { width: 180px; flex-shrink: 0; }
 
 /* ============================================================
    ===== WRITING — IMAGE & INSTRUCTION BLOCKS =====

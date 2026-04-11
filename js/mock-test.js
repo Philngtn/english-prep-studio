@@ -470,10 +470,9 @@ function _renderReadingSplit(q, idx, qs) {
         Questions ${firstIdx + 1}–${firstIdx + passageQs.length}
       </span>
     </div>` +
-    passageQs.map((pq, i) =>
-      `<div class="reading-question-card" id="q-card-${pq.id}">${renderQuestionHTML(pq, firstIdx + i)}</div>`
-    ).join('');
+    _rdRenderQuestionsPane(passageQs, firstIdx);
   qPane.scrollTop = savedScroll;
+  _rdAttachHandlers(qPane);
 
   // Nav buttons: passage-level
   document.getElementById('prevBtn').disabled = passageIdx === 0;
@@ -532,6 +531,290 @@ function _buildAudioPlayer(url) {
       allow="autoplay" allowfullscreen></iframe>`;
   }
   return `<audio class="listening-audio-player" src="${url}" controls></audio>`;
+}
+
+/* ============================================================
+   ===== READING QUESTION RENDERERS =====
+   ============================================================ */
+function _rdEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* Build the HTML for all questions in a passage, grouping by groupId */
+function _rdRenderQuestionsPane(passageQs, firstIdx) {
+  const rendered = new Set();
+  const cards    = [];
+  passageQs.forEach((pq, i) => {
+    const sid = String(pq.id);
+    if (rendered.has(sid)) return;
+    if (pq.groupId) {
+      const peers = passageQs.filter(x => x.groupId === pq.groupId);
+      peers.forEach(p => rendered.add(String(p.id)));
+      cards.push(`<div class="reading-question-card">${_rdRenderGroupBlock(peers)}</div>`);
+    } else {
+      rendered.add(sid);
+      cards.push(`<div class="reading-question-card" id="q-card-${pq.id}">${_rdRenderQuestion(pq, firstIdx + i)}</div>`);
+    }
+  });
+  return cards.join('');
+}
+
+/* Render a single (non-grouped) reading question */
+function _rdRenderQuestion(q, idx) {
+  const saved   = appState.test.answers[q.id];
+  const qLabel  = q.qNum != null ? q.qNum : idx + 1;
+  const qPrefix = String(qLabel).includes('&') ? 'Questions' : 'Question';
+  const answerRule = q.answerRule
+    ? `<div class="rd-answer-rule">${_rdEsc(q.answerRule)}</div>` : '';
+  let body = '';
+
+  if (q.type === 'tfng' || q.type === 'ynng') {
+    const opts = q.type === 'tfng'
+      ? [{k:'TRUE',l:'True'},{k:'FALSE',l:'False'},{k:'NG',l:'Not Given'}]
+      : [{k:'YES',l:'Yes'},{k:'NO',l:'No'},{k:'NG',l:'Not Given'}];
+    body = `<div class="rd-tfng-opts" role="radiogroup" aria-label="Question ${qLabel}">
+      ${opts.map(o => {
+        const active = saved === o.k ? ' rd-tfng-btn--active' : '';
+        return `<button class="rd-tfng-btn${active}" type="button"
+          data-qid="${q.id}" data-val="${o.k}"
+          aria-pressed="${saved === o.k}">${o.l}</button>`;
+      }).join('')}
+    </div>`;
+
+  } else if (q.type === 'mcq') {
+    body = `<div class="options-list">
+      ${(q.options||[]).map((opt, i) => {
+        const letter = String.fromCharCode(65 + i);
+        const sel    = saved === letter ? ' selected' : '';
+        return `<label class="option-label${sel}">
+          <input type="radio" name="q_${q.id}" value="${letter}" ${saved===letter?'checked':''}
+            aria-label="Question ${qLabel}, option ${letter}">
+          ${opt}</label>`;
+      }).join('')}
+    </div>`;
+
+  } else if (q.type === 'multi') {
+    const savedArr  = saved ? saved.split(',').filter(Boolean) : [];
+    const maxLetter = String.fromCharCode(64 + (q.options||[]).length);
+    body = `<p class="multi-hint">Choose <strong>${q.count||2}</strong> answers (A–${maxLetter})</p>
+    <div class="options-list">
+      ${(q.options||[]).map((opt, i) => {
+        const letter = String.fromCharCode(65 + i);
+        const isChk  = savedArr.includes(letter);
+        return `<label class="option-label${isChk ? ' selected' : ''}">
+          <input type="checkbox" name="q_${q.id}" value="${letter}" ${isChk?'checked':''}
+            data-max="${q.count||2}"
+            aria-label="Question ${qLabel}, option ${letter}">
+          ${opt}</label>`;
+      }).join('')}
+    </div>`;
+
+  } else if (q.type === 'matching' || q.type === 'matching_headings' ||
+             q.type === 'matching_info' || q.type === 'matching_information' ||
+             q.type === 'matching_features' || q.type === 'matching_sentence_endings') {
+    const opts = q.options || [];
+    /* Option bank: shown when options contain more than bare letters */
+    const hasFullText = opts.some(o => o.length > 3);
+    const optBankHtml = opts.length ? `
+      <div class="rd-option-bank">
+        <div class="rd-option-bank-header">Options</div>
+        <ul class="rd-option-bank-list">
+          ${opts.map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            const display = opt.length <= 2 ? `Paragraph ${opt}` : opt;
+            return `<li class="rd-option-bank-item">
+              <span class="rd-opt-letter">${letter}.</span>
+              <span class="rd-opt-text">${display}</span>
+            </li>`;
+          }).join('')}
+        </ul>
+      </div>` : '';
+    const dropdownOpts = opts.map((opt, i) => {
+      const letter  = String.fromCharCode(65 + i);
+      const display = opt.length <= 2 ? `Paragraph ${opt}` : opt;
+      return `<option value="${letter}" ${saved===letter?'selected':''}>${letter}. ${display}</option>`;
+    }).join('');
+    body = `${optBankHtml}
+    <select class="rd-matching-sel" data-qid="${q.id}" aria-label="Question ${qLabel} answer">
+      <option value="">— Select —</option>
+      ${dropdownOpts}
+    </select>`;
+
+  } else if (q.type === 'completion' && Array.isArray(q.content)) {
+    /* Inline blank completion: content is an array of {type:"text"|"blank", value?, id?} */
+    body = `${answerRule}<div class="rd-inline-content">
+      ${q.content.map(tok => {
+        if (tok.type === 'text') return `<span class="rd-inline-text">${tok.value}</span>`;
+        if (tok.type === 'blank') {
+          const val = appState.test.answers[tok.id] || '';
+          return `<span class="rd-blank-wrap">
+            <span class="rd-blank-num">${tok.id}</span>
+            <input type="text" class="rd-blank-input" data-qid="${_rdEsc(tok.id)}"
+              value="${_rdEsc(val)}" autocomplete="off" spellcheck="false"
+              aria-label="Blank ${tok.id}" placeholder="(${tok.id})">
+          </span>`;
+        }
+        return '';
+      }).join('')}
+    </div>`;
+
+  } else {
+    /* short / sentence_completion / summary_completion / note_completion / form_completion */
+    body = `${answerRule}<input type="text" class="answer-input" data-qid="${q.id}"
+      placeholder="Type your answer…" value="${_rdEsc(saved||'')}"
+      autocomplete="off" spellcheck="false" aria-label="Question ${qLabel} answer">`;
+  }
+
+  let html = `<div class="question-block">
+    <div class="question-number">${qPrefix} ${qLabel}</div>
+    <div class="question-text">${q.text}</div>
+    ${body}
+  </div>`;
+  if (q.instructions) html = `<div class="rd-instructions">${q.instructions}</div>` + html;
+  return html;
+}
+
+/* Render a grouped question block (table_completion, diagram_labeling) */
+function _rdRenderGroupBlock(peers) {
+  if (!peers.length) return '';
+  const qNums      = peers.map(p => p.qNum || p.id);
+  const rangeLabel = qNums.length === 1
+    ? `Question ${qNums[0]}`
+    : `Questions ${qNums[0]}–${qNums[qNums.length - 1]}`;
+  const instructions = (peers.find(p => p.instructions) || {}).instructions || '';
+  const type = peers[0].type;
+
+  let inner = '';
+  if (type === 'diagram_labeling' || type === 'map_labeling') {
+    inner = _rdRenderDiagram(peers, rangeLabel);
+  } else if (type === 'table_completion') {
+    inner = _rdRenderTable(peers, rangeLabel);
+  } else {
+    inner = _rdRenderFormList(peers, rangeLabel);
+  }
+  return (instructions ? `<div class="rd-instructions">${instructions}</div>` : '') + inner;
+}
+
+function _rdRenderDiagram(peers, rangeLabel) {
+  const imgUrl     = (peers[0] && peers[0].groupImage) || '';
+  const answerRule = peers[0].answerRule
+    ? `<div class="rd-answer-rule">${_rdEsc(peers[0].answerRule)}</div>` : '';
+  const pinsHtml   = peers.map(p => {
+    const saved = appState.test.answers[p.id] || '';
+    return `<div class="rd-diagram-blank" style="left:${p.xPct||0}%;top:${p.yPct||0}%">
+      <span class="rd-diagram-label">${p.qNum || p.id}</span>
+      <input type="text" class="rd-diagram-input" data-qid="${p.id}"
+        value="${_rdEsc(saved)}" autocomplete="off" spellcheck="false"
+        aria-label="Blank ${p.qNum || p.id}: ${_rdEsc(p.text||'')}">
+    </div>`;
+  }).join('');
+  const promptsHtml = peers.map(p =>
+    `<div class="rd-diagram-prompt"><strong>${p.qNum || p.id}.</strong> ${p.text || ''}</div>`
+  ).join('');
+  return `<div class="question-block">
+    <div class="question-number">${rangeLabel}</div>
+    ${answerRule}
+    ${imgUrl
+      ? `<div class="rd-image-wrap"><img src="${_rdEsc(imgUrl)}" class="rd-diagram-img" alt="Diagram" draggable="false">${pinsHtml}</div>`
+      : '<div class="rd-no-image">No diagram image provided.</div>'}
+    ${promptsHtml ? `<div class="rd-diagram-prompts">${promptsHtml}</div>` : ''}
+  </div>`;
+}
+
+function _rdRenderTable(peers, rangeLabel) {
+  const rowKeys = [], colKeys = [];
+  peers.forEach(p => {
+    if (p.rowContext && !rowKeys.includes(p.rowContext)) rowKeys.push(p.rowContext);
+    if (p.colContext && !colKeys.includes(p.colContext)) colKeys.push(p.colContext);
+  });
+  const cellMap = {};
+  peers.forEach(p => { cellMap[`${p.rowContext}||${p.colContext}`] = p; });
+  const answerRule = peers[0].answerRule
+    ? `<div class="rd-answer-rule">${_rdEsc(peers[0].answerRule)}</div>` : '';
+  const headerHtml = `<tr><th></th>${colKeys.map(c => `<th>${_rdEsc(c)}</th>`).join('')}</tr>`;
+  const bodyHtml   = rowKeys.map(row => `<tr>
+    <td class="rd-table-row-label">${_rdEsc(row)}</td>
+    ${colKeys.map(col => {
+      const p = cellMap[`${row}||${col}`];
+      if (!p) return '<td></td>';
+      const saved = appState.test.answers[p.id] || '';
+      return `<td><input type="text" class="rd-table-input" data-qid="${p.id}"
+        value="${_rdEsc(saved)}" autocomplete="off" spellcheck="false"
+        aria-label="Blank ${p.qNum || p.id}" placeholder="(${p.qNum || p.id})"></td>`;
+    }).join('')}
+  </tr>`).join('');
+  return `<div class="question-block">
+    <div class="question-number">${rangeLabel}</div>
+    ${answerRule}
+    <div class="rd-table-wrap"><table class="rd-completion-table">
+      <thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function _rdRenderFormList(peers, rangeLabel) {
+  const fieldsHtml = peers.map(p => {
+    const saved = appState.test.answers[p.id] || '';
+    return `<div class="rd-form-field">
+      <span class="rd-form-num">${p.qNum || p.id}.</span>
+      <span class="rd-form-label">${p.text || ''}</span>
+      <input type="text" class="rd-form-input answer-input" data-qid="${p.id}"
+        value="${_rdEsc(saved)}" autocomplete="off" spellcheck="false"
+        aria-label="Blank ${p.qNum || p.id}" placeholder="…">
+    </div>`;
+  }).join('');
+  return `<div class="question-block">
+    <div class="question-number">${rangeLabel}</div>
+    <div class="rd-form-group">${fieldsHtml}</div>
+  </div>`;
+}
+
+/* Event delegation for the reading questions pane — no inline onclick handlers */
+function _rdAttachHandlers(qPane) {
+  if (qPane._rdClickH)  { qPane.removeEventListener('click',  qPane._rdClickH);  }
+  if (qPane._rdChangeH) { qPane.removeEventListener('change', qPane._rdChangeH); }
+  if (qPane._rdInputH)  { qPane.removeEventListener('input',  qPane._rdInputH);  }
+
+  qPane._rdClickH = function(e) {
+    const btn = e.target.closest('.rd-tfng-btn');
+    if (!btn) return;
+    const qid = btn.dataset.qid;
+    const val = btn.dataset.val;
+    saveAnswer(qid, val);
+    btn.closest('.rd-tfng-opts').querySelectorAll('.rd-tfng-btn').forEach(b => {
+      const active = b.dataset.val === val;
+      b.classList.toggle('rd-tfng-btn--active', active);
+      b.setAttribute('aria-pressed', String(active));
+    });
+  };
+
+  qPane._rdChangeH = function(e) {
+    const t = e.target;
+    if (t.type === 'radio') {
+      const qid = t.name.startsWith('q_') ? t.name.slice(2) : null;
+      if (!qid) return;
+      saveAnswer(qid, t.value);
+      document.querySelectorAll(`input[name="${t.name}"]`).forEach(r => {
+        const lbl = r.closest('label');
+        if (lbl) lbl.classList.toggle('selected', r === t);
+      });
+    } else if (t.type === 'checkbox') {
+      const qid = t.name.startsWith('q_') ? t.name.slice(2) : null;
+      if (!qid) return;
+      saveMulti(qid, t.value, t.checked, parseInt(t.dataset.max) || 2);
+    } else if (t.tagName === 'SELECT' && t.dataset.qid) {
+      saveAnswer(t.dataset.qid, t.value);
+    }
+  };
+
+  qPane._rdInputH = function(e) {
+    const t = e.target;
+    if (t.type === 'text' && t.dataset.qid) saveAnswer(t.dataset.qid, t.value);
+  };
+
+  qPane.addEventListener('click',  qPane._rdClickH);
+  qPane.addEventListener('change', qPane._rdChangeH);
+  qPane.addEventListener('input',  qPane._rdInputH);
 }
 
 /* ============================================================
