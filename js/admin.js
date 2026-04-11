@@ -1687,10 +1687,19 @@ function _buildReadingQuestionRow(pi, qi, q) {
         type="number" min="1" max="5" value="${count}">
     </div>` : '';
 
+  const imgVal = q.groupImage || '';
   const graphicSection = type === 'diagram_labeling' ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
-      <label class="admin-label">Image URL</label>
-      <input class="admin-input" id="rd-img-${pi}-${qi}" value="${_esc(q.groupImage||'')}" placeholder="images/diagram.png">
+      <label class="admin-label">Diagram Image</label>
+      <div class="diag-upload-row">
+        <input class="admin-input" id="rd-img-${pi}-${qi}"
+          value="${_esc(imgVal)}" placeholder="Paste image URL, or upload ↓">
+        <input type="file" id="rd-img-file-${pi}-${qi}" accept="image/*" style="display:none"
+          onchange="adminDiagUploadImage(${pi},${qi},this)">
+        <button class="btn btn-sm btn-outline" type="button"
+          onclick="document.getElementById('rd-img-file-${pi}-${qi}').click()">&#8679; Upload</button>
+      </div>
+      ${imgVal ? `<img id="rd-img-preview-${pi}-${qi}" class="diag-img-preview" src="${_esc(imgVal)}" alt="Preview">` : `<span id="rd-img-preview-${pi}-${qi}"></span>`}
     </div>
     <div class="admin-vocab-grid" style="margin-top:0.5rem;">
       <div class="admin-field-row">
@@ -1701,6 +1710,12 @@ function _buildReadingQuestionRow(pi, qi, q) {
         <label class="admin-label">Y % position</label>
         <input class="admin-input" type="number" step="0.1" min="0" max="100" id="rd-ypct-${pi}-${qi}" value="${q.yPct||0}">
       </div>
+    </div>
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <button class="btn btn-sm btn-primary" type="button" onclick="adminDiagOpenModal(${pi},${qi})">
+        &#128506; Place on Image
+      </button>
+      <small style="color:var(--text-muted);margin-left:0.5rem;">Visual editor — place &amp; drag all boxes in this group</small>
     </div>` : '';
 
   const tableSection = type === 'table_completion' ? `
@@ -3727,4 +3742,290 @@ function adminImportMiniQuizJSON(replaceAll) {
     arr.splice(0, arr.length, ..._mqAllTests);
   }
   showToast(`Imported ${added} section(s).${replaceAll ? ' Previous content cleared.' : ''}`);
+}
+
+/* ============================================================
+   DIAGRAM PLACEMENT EDITOR
+   ============================================================ */
+let _diagModalPi      = -1;
+let _diagModalGroupId = '';
+let _diagModalImgUrl  = '';
+let _diagModalPins    = [];   // [{id, qNum, answer, xPct, yPct, isNew}]
+let _diagModalNextId  = 0;
+let _diagDragging     = null; // {pinId, lastX, lastY}
+let _diagDragMoved    = false;
+
+/* ── Upload image, compress and fill URL field ── */
+function adminDiagUploadImage(pi, qi, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) { showToast('File too large — please use an image under 8 MB.'); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Resize to max 1400×1000 and compress to JPEG 85%
+      const MAX_W = 1400, MAX_H = 1000;
+      let w = img.width, h = img.height;
+      if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+      if (h > MAX_H) { w = Math.round(w * MAX_H / h); h = MAX_H; }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+      const urlInput  = document.getElementById(`rd-img-${pi}-${qi}`);
+      if (urlInput) urlInput.value = dataUrl;
+      const previewEl = document.getElementById(`rd-img-preview-${pi}-${qi}`);
+      if (previewEl && previewEl.tagName === 'IMG') {
+        previewEl.src = dataUrl;
+      } else if (previewEl) {
+        // Replace placeholder span with img
+        const img2 = document.createElement('img');
+        img2.id = `rd-img-preview-${pi}-${qi}`;
+        img2.className = 'diag-img-preview';
+        img2.alt = 'Preview';
+        img2.src = dataUrl;
+        previewEl.replaceWith(img2);
+      }
+      showToast('Image uploaded. Click "Save Reading" to persist.');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── Build / show modal ── */
+function _diagEnsureModal() {
+  if (document.getElementById('diagPlacementModal')) return;
+  const el = document.createElement('div');
+  el.id = 'diagPlacementModal';
+  el.className = 'diag-placement-overlay';
+  el.style.display = 'none';
+  el.innerHTML = `
+    <div class="diag-placement-modal">
+      <div class="diag-placement-header">
+        <div>
+          <h3 class="diag-placement-title">&#128506; Diagram Placement Editor</h3>
+          <p class="diag-placement-hint">Click on the image to add a box. Drag boxes to reposition. Click &#10005; to remove.</p>
+        </div>
+        <div class="diag-placement-actions">
+          <button class="btn btn-primary btn-sm" type="button" onclick="adminDiagSavePlacements()">&#10003; Save Positions</button>
+          <button class="btn btn-outline btn-sm"  type="button" onclick="adminDiagCloseModal()">&#10005; Cancel</button>
+        </div>
+      </div>
+      <div class="diag-placement-body">
+        <div class="diag-canvas-wrap">
+          <div class="diag-placement-canvas" id="diagPlacementCanvas">
+            <img id="diagPlacementImg" class="diag-placement-img" draggable="false" alt="Diagram">
+          </div>
+        </div>
+        <div class="diag-placement-sidebar" id="diagPlacementList"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  const canvas = el.querySelector('#diagPlacementCanvas');
+  canvas.addEventListener('click',      _diagHandleCanvasClick);
+  canvas.addEventListener('mousedown',  _diagHandleMouseDown);
+  document.addEventListener('mousemove', _diagHandleMouseMove);
+  document.addEventListener('mouseup',   _diagHandleMouseUp);
+  canvas.addEventListener('touchstart', _diagHandleTouchStart, {passive:false});
+  document.addEventListener('touchmove', _diagHandleTouchMove, {passive:false});
+  document.addEventListener('touchend',  _diagHandleTouchEnd);
+}
+
+function adminDiagOpenModal(pi, qi) {
+  const d = _collectReadingData();
+  const passage = d.passages[pi];
+  if (!passage) return;
+  const q = passage.questions[qi];
+  if (!q) return;
+  const groupId = q.groupId;
+  const imgUrl  = q.groupImage || document.getElementById(`rd-img-${pi}-${qi}`)?.value || '';
+  if (!groupId) { showToast('Set a Group ID first.'); return; }
+  if (!imgUrl)  { showToast('Upload or enter an image URL first.'); return; }
+
+  _diagModalPi      = pi;
+  _diagModalGroupId = groupId;
+  _diagModalImgUrl  = imgUrl;
+  _diagModalPins    = passage.questions
+    .filter(pq => pq.groupId === groupId)
+    .map(pq => ({
+      id:     pq.id,
+      qNum:   pq.qNum != null ? pq.qNum : pq.id,
+      answer: Array.isArray(pq.answer) ? pq.answer.join(', ') : (pq.answer || ''),
+      xPct:   pq.xPct || 0,
+      yPct:   pq.yPct || 0,
+      isNew:  false,
+    }));
+  const existingNums = _diagModalPins.map(p => Number(p.qNum) || 0);
+  _diagModalNextId  = existingNums.length ? Math.max(...existingNums) : 0;
+
+  _diagEnsureModal();
+  const modal = document.getElementById('diagPlacementModal');
+  modal.style.display = 'flex';
+  document.getElementById('diagPlacementImg').src = imgUrl;
+  _diagRenderPins();
+}
+
+function adminDiagCloseModal() {
+  const modal = document.getElementById('diagPlacementModal');
+  if (modal) modal.style.display = 'none';
+  _diagDragging = null;
+}
+
+/* ── Render all pins onto canvas + sidebar ── */
+function _diagRenderPins() {
+  const canvas = document.getElementById('diagPlacementCanvas');
+  const list   = document.getElementById('diagPlacementList');
+  if (!canvas || !list) return;
+  canvas.querySelectorAll('.diag-pin').forEach(p => p.remove());
+  _diagModalPins.forEach(pin => {
+    const el = document.createElement('div');
+    el.className   = 'diag-pin';
+    el.dataset.pinId = String(pin.id);
+    el.style.left  = pin.xPct + '%';
+    el.style.top   = pin.yPct + '%';
+    el.innerHTML   = `<div class="diag-pin-badge">${pin.qNum}</div>
+      <button class="diag-pin-delete" type="button" onclick="adminDiagDeletePin('${pin.id}')">&#10005;</button>`;
+    canvas.appendChild(el);
+  });
+  list.innerHTML = `<div class="diag-list-header">Answer Boxes (${_diagModalPins.length})</div>` +
+    (_diagModalPins.length === 0
+      ? '<p class="diag-empty">Click anywhere on the image to place the first box.</p>'
+      : _diagModalPins.map(pin => `
+          <div class="diag-pin-row" id="diagPinRow-${pin.id}">
+            <div class="diag-pin-row-top">
+              <span class="diag-pin-badge-sm">${pin.qNum}</span>
+              <input type="number" class="admin-input diag-qnum-input" value="${pin.qNum}" min="1"
+                placeholder="Q#" title="Question number"
+                onchange="adminDiagUpdateQNum('${pin.id}',this.value)">
+              <input type="text" class="admin-input diag-answer-input" value="${_esc(pin.answer)}"
+                placeholder="Correct answer…"
+                oninput="adminDiagUpdateAnswer('${pin.id}',this.value)">
+              <button class="btn btn-sm btn-danger" type="button"
+                onclick="adminDiagDeletePin('${pin.id}')">&#10005;</button>
+            </div>
+            <div class="diag-pin-pos" id="diagPinPos-${pin.id}">
+              x: ${pin.xPct.toFixed(1)}%&ensp;y: ${pin.yPct.toFixed(1)}%
+            </div>
+          </div>`).join(''));
+}
+
+/* ── Canvas click → add new pin ── */
+function _diagHandleCanvasClick(e) {
+  if (_diagDragMoved) { _diagDragMoved = false; return; }
+  if (e.target.closest('.diag-pin')) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const xPct = Math.round(((e.clientX - rect.left)  / rect.width)  * 1000) / 10;
+  const yPct = Math.round(((e.clientY - rect.top)   / rect.height) * 1000) / 10;
+  _diagModalNextId++;
+  _diagModalPins.push({ id: `n${_diagModalNextId}`, qNum: _diagModalNextId, answer: '', xPct, yPct, isNew: true });
+  _diagRenderPins();
+}
+
+/* ── Mouse drag ── */
+function _diagHandleMouseDown(e) {
+  const pin = e.target.closest('.diag-pin');
+  if (!pin || e.target.closest('.diag-pin-delete')) return;
+  e.preventDefault();
+  _diagDragMoved = false;
+  _diagDragging = { pinId: pin.dataset.pinId, lastX: e.clientX, lastY: e.clientY };
+  pin.classList.add('diag-dragging');
+}
+function _diagHandleMouseMove(e) {
+  if (!_diagDragging) return;
+  _diagDragMoved = true;
+  _diagMovePinBy(_diagDragging.pinId, e.clientX - _diagDragging.lastX, e.clientY - _diagDragging.lastY);
+  _diagDragging.lastX = e.clientX;
+  _diagDragging.lastY = e.clientY;
+}
+function _diagHandleMouseUp() {
+  if (!_diagDragging) return;
+  document.querySelector(`.diag-pin[data-pin-id="${_diagDragging.pinId}"]`)?.classList.remove('diag-dragging');
+  _diagDragging = null;
+}
+
+/* ── Touch drag ── */
+function _diagHandleTouchStart(e) {
+  const pin = e.target.closest('.diag-pin');
+  if (!pin || e.target.closest('.diag-pin-delete')) return;
+  e.preventDefault();
+  _diagDragMoved = false;
+  const t = e.touches[0];
+  _diagDragging = { pinId: pin.dataset.pinId, lastX: t.clientX, lastY: t.clientY };
+  pin.classList.add('diag-dragging');
+}
+function _diagHandleTouchMove(e) {
+  if (!_diagDragging) return;
+  e.preventDefault();
+  _diagDragMoved = true;
+  const t = e.touches[0];
+  _diagMovePinBy(_diagDragging.pinId, t.clientX - _diagDragging.lastX, t.clientY - _diagDragging.lastY);
+  _diagDragging.lastX = t.clientX;
+  _diagDragging.lastY = t.clientY;
+}
+function _diagHandleTouchEnd() {
+  if (!_diagDragging) return;
+  document.querySelector(`.diag-pin[data-pin-id="${_diagDragging.pinId}"]`)?.classList.remove('diag-dragging');
+  _diagDragging = null;
+}
+
+/* ── Shared drag move logic ── */
+function _diagMovePinBy(pinId, dx, dy) {
+  const canvas  = document.getElementById('diagPlacementCanvas');
+  const pinEl   = document.querySelector(`.diag-pin[data-pin-id="${pinId}"]`);
+  const pinData = _diagModalPins.find(p => String(p.id) === String(pinId));
+  if (!canvas || !pinEl || !pinData) return;
+  const rect = canvas.getBoundingClientRect();
+  pinData.xPct = Math.round(Math.max(0, Math.min(100, pinData.xPct + dx / rect.width  * 100)) * 10) / 10;
+  pinData.yPct = Math.round(Math.max(0, Math.min(100, pinData.yPct + dy / rect.height * 100)) * 10) / 10;
+  pinEl.style.left = pinData.xPct + '%';
+  pinEl.style.top  = pinData.yPct + '%';
+  const posEl = document.getElementById(`diagPinPos-${pinId}`);
+  if (posEl) posEl.textContent = `x: ${pinData.xPct.toFixed(1)}%  y: ${pinData.yPct.toFixed(1)}%`;
+}
+
+/* ── Pin mutations ── */
+function adminDiagDeletePin(pinId) {
+  _diagModalPins = _diagModalPins.filter(p => String(p.id) !== String(pinId));
+  _diagRenderPins();
+}
+function adminDiagUpdateAnswer(pinId, val) {
+  const pin = _diagModalPins.find(p => String(p.id) === String(pinId));
+  if (pin) pin.answer = val;
+}
+function adminDiagUpdateQNum(pinId, val) {
+  const pin = _diagModalPins.find(p => String(p.id) === String(pinId));
+  if (!pin) return;
+  pin.qNum = parseInt(val) || pin.qNum;
+  const badge = document.querySelector(`.diag-pin[data-pin-id="${pinId}"] .diag-pin-badge`);
+  if (badge) badge.textContent = pin.qNum;
+  const sm = document.querySelector(`#diagPinRow-${pinId} .diag-pin-badge-sm`);
+  if (sm) sm.textContent = pin.qNum;
+}
+
+/* ── Save placements back to reading editor ── */
+function adminDiagSavePlacements() {
+  const d = _collectReadingData();
+  const passage = d.passages[_diagModalPi];
+  if (!passage) return;
+  // Remove old group questions, keep others
+  passage.questions = passage.questions.filter(q => q.groupId !== _diagModalGroupId);
+  // Add pins as questions
+  _diagModalPins.forEach((pin, i) => {
+    passage.questions.push({
+      id:         pin.isNew ? (Date.now() + i) : pin.id,
+      qNum:       pin.qNum,
+      type:       'diagram_labeling',
+      text:       '',
+      answer:     pin.answer || '',
+      groupId:    _diagModalGroupId,
+      groupImage: _diagModalImgUrl,
+      xPct:       pin.xPct,
+      yPct:       pin.yPct,
+    });
+  });
+  _applyReadingEditorState(d);
+  adminDiagCloseModal();
+  showToast(`Saved ${_diagModalPins.length} diagram box(es).`);
 }
