@@ -771,23 +771,22 @@ iframe.listening-audio-player { height: 80px; }
 .ls-matching-select:focus { outline: none; border-color: var(--primary); }
 
 /* ── Token-based sentence / summary completions ─────────────── */
-.ls-sentence-tokens { line-height: 2.5; font-size: 0.93rem; }
+.ls-sentence-tokens { line-height: 2.6; font-size: 0.93rem; }
 .ls-token-text { }
 .ls-token-blank-wrap {
-  display: inline-flex; align-items: center; gap: 0.2rem;
-  vertical-align: middle; margin: 0 0.1rem;
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  vertical-align: middle; margin: 0 0.15rem;
 }
 .ls-token-blank-num {
-  font-size: 0.7rem; font-weight: 700; color: var(--primary);
-  background: rgba(236, 72, 153, 0.08); border-radius: 3px;
-  padding: 0 3px; line-height: 1.6;
+  display: inline-block; font-size: 0.72rem; font-weight: 700;
+  color: #333; border: 1.5px solid #555; border-radius: 3px;
+  padding: 0 4px; line-height: 1.7; background: #fff;
 }
 .ls-token-blank-input {
-  width: 120px; border: none; border-bottom: 2px solid var(--primary);
-  background: transparent; font-size: 0.9rem; padding: 0.1rem 0.3rem;
-  text-align: center;
+  width: 130px; border: 1.5px solid var(--border); border-radius: 4px;
+  background: #fff; font-size: 0.88rem; padding: 0.2rem 0.4rem;
 }
-.ls-token-blank-input:focus { outline: none; border-bottom-color: var(--primary); }
+.ls-token-blank-input:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
 
 /* ── Answer rule and instruction banners ─────────────────────── */
 .ls-answer-rule {

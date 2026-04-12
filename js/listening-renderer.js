@@ -370,16 +370,23 @@ function lsRenderSummaryGroup(peers, rangeLabel) {
       return '';
     }).join('') + '</div>';
   } else {
-    // Fallback: treat as form group
-    bodyHtml = '<div class="ls-form-group">' + peers.map(p => {
+    // No tokens: each peer's text contains '________' as the blank marker.
+    // Render as one flowing paragraph with inline numbered inputs.
+    const paragraph = peers.map(p => {
       const saved = appState.test.answers[p.id] || '';
-      return `<div class="ls-form-field">
-        <label class="ls-form-label">${escHtml(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
-        <input type="text" class="ls-form-input" value="${escHtml(saved)}"
-          data-qid="${p.id}"
-          oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
-      </div>`;
-    }).join('') + '</div>';
+      const blank = `<span class="ls-token-blank-wrap">
+        <span class="ls-token-blank-num">${p.qNum}</span>
+        <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
+          data-qid="${p.id}" oninput="saveAnswer('${p.id}',this.value)">
+        ${lsJumpBtn(p.questionStart)}
+      </span>`;
+      const parts = (p.text || '').split(/_{2,}/);
+      if (parts.length >= 2) {
+        return escHtml(parts[0]) + blank + escHtml(parts.slice(1).join('________'));
+      }
+      return escHtml(p.text || '') + ' ' + blank;
+    }).join(' ');
+    bodyHtml = `<div class="ls-sentence-tokens">${paragraph}</div>`;
   }
 
   return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
