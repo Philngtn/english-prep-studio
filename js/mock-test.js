@@ -5,7 +5,6 @@ let _lastSectionId    = null;   // which section's questions are currently displ
 let _audioSectionId   = null;   // which section's audio is loaded in the player
 let _transcriptExpanded = false;
 let _audioFinishedSections = new Set();   // section ids whose audio has reached 'ended'
-let _scrubLockActive  = false;            // prevents recursive seeking when we reset currentTime
 
 /* ============================================================
    ===== TEST SECTION START =====
@@ -615,11 +614,18 @@ function _updateListeningPlayerBar(section, firstStart) {
   const audioEl = player.querySelector('audio');
   if (!audioEl) return;
 
+  // Wire up time display updates for the custom player
+  audioEl.addEventListener('timeupdate',     _lsCpUpdateDisplay);
+  audioEl.addEventListener('loadedmetadata', _lsCpUpdateDisplay);
+  audioEl.addEventListener('play',           _lsCpUpdateDisplay);
+  audioEl.addEventListener('pause',          _lsCpUpdateDisplay);
+
   if (appState.timerCountdown) {
-    // Countdown: auto-play from 0, lock pause + scrubber, track when section ends
+    // Countdown: hide play button, auto-play from 0, lock pause, track when section ends
+    const playBtn = player.querySelector('.ls-cp-play');
+    if (playBtn) playBtn.style.display = 'none';
     audioEl.play().catch(() => {});
     audioEl.addEventListener('pause', _lsPauseLockHandler);
-    _lsAttachScrubLock(audioEl);
     audioEl.addEventListener('ended', () => {
       _audioFinishedSections.add(section.id);
     }, { once: true });
@@ -650,25 +656,30 @@ function _lsPauseLockHandler() {
   }
 }
 
-/* Prevents the student from scrubbing the timeline during a timed test.
-   Tracks the last safe position via timeupdate and snaps back on seeking. */
-function _lsAttachScrubLock(audioEl) {
-  audioEl.addEventListener('timeupdate', function () {
-    if (!this.seeking) this._safeTime = this.currentTime;
-  });
-  audioEl.addEventListener('seeking', function () {
-    if (_scrubLockActive) return;
-    if (appState.timerCountdown && appState.test && appState.test.active && !this.ended) {
-      _scrubLockActive = true;
-      this.currentTime = this._safeTime || 0;
-      _scrubLockActive = false;
-      showToast('Scrubbing is disabled during a timed test.');
-    }
-  });
+/* Custom player: update time display and play/pause icon */
+function _lsCpUpdateDisplay() {
+  const timeEl  = document.getElementById('ls-cp-time');
+  const playBtn = document.getElementById('ls-cp-play');
+  if (timeEl) {
+    const cur = isNaN(this.currentTime) ? 0 : this.currentTime;
+    const dur = isNaN(this.duration)    ? 0 : this.duration;
+    timeEl.textContent = _lsCpFmt(cur) + (dur > 0 ? ' / ' + _lsCpFmt(dur) : '');
+  }
+  if (playBtn) playBtn.innerHTML = (this.paused && !this.ended) ? '&#9654;' : '&#9646;&#9646;';
+}
+function _lsCpFmt(s) {
+  const m = Math.floor(s / 60);
+  return `${m}:${Math.floor(s % 60).toString().padStart(2,'0')}`;
+}
+function lsCpToggle() {
+  const audio = document.querySelector('#lpbPlayer .ls-audio-el');
+  if (!audio) return;
+  if (audio.paused) audio.play().catch(() => {});
+  else audio.pause();
 }
 
 function seekListeningAudio(seconds) {
-  const audioEl = document.querySelector('#lpbPlayer audio');
+  const audioEl = document.querySelector('#lpbPlayer .ls-audio-el');
   if (!audioEl) { showToast('No audio player found.'); return; }
   const doSeek = () => { audioEl.currentTime = seconds; };
   if (audioEl.readyState >= 1) doSeek();
@@ -683,7 +694,12 @@ function _buildAudioPlayer(url) {
       src="https://drive.google.com/file/d/${gdMatch[1]}/preview"
       allow="autoplay" allowfullscreen></iframe>`;
   }
-  return `<audio class="listening-audio-player" src="${url}" controls autoplay></audio>`;
+  // Custom player: no scrubber — just a play/pause button + time counter
+  return `<div class="ls-custom-player">
+    <audio class="ls-audio-el" src="${url}" preload="auto"></audio>
+    <button class="ls-cp-play" id="ls-cp-play" onclick="lsCpToggle()" title="Play / Pause">&#9654;</button>
+    <span class="ls-cp-time" id="ls-cp-time">0:00</span>
+  </div>`;
 }
 
 /* ============================================================
