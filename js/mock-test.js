@@ -478,14 +478,9 @@ function renderCurrentQuestion() {
     const sectionIdx  = sections.findIndex(s => s.id === q.sectionId);
     const sectionChanged = _lastSectionId !== (section && section.id);
 
-    // Compute firstStart for practice-mode seek (countdown mode always starts at 0)
-    const sectionQsForAudio = qs.filter(fq => fq.sectionId === q.sectionId);
-    const firstStart = (!appState.timerCountdown && sectionQsForAudio[0])
-      ? (sectionQsForAudio[0].questionStart ?? null) : null;
-
     // Update the player bar. In countdown mode this guards the audio unlock check;
     // it may return without changing audio if a prior section hasn't finished yet.
-    _updateListeningPlayerBar(section, firstStart);
+    _updateListeningPlayerBar(section);
 
     if (sectionChanged) {
       _lastSectionId = section.id;   // update question-display cache
@@ -580,7 +575,7 @@ function toggleTranscript() {
   if (arrow) arrow.innerHTML    = _transcriptExpanded ? '&#9650; Hide transcript' : '&#9660; Show transcript';
 }
 
-function _updateListeningPlayerBar(section, firstStart) {
+function _updateListeningPlayerBar(section) {
   const bar   = document.getElementById('listeningPlayerBar');
   const label = document.getElementById('lpbSectionLabel');
   const player = document.getElementById('lpbPlayer');
@@ -614,14 +609,12 @@ function _updateListeningPlayerBar(section, firstStart) {
   const audioEl = player.querySelector('audio');
   if (!audioEl) return;
 
-  // Wire up time display updates for the custom player
-  audioEl.addEventListener('timeupdate',     _lsCpUpdateDisplay);
-  audioEl.addEventListener('loadedmetadata', _lsCpUpdateDisplay);
-  audioEl.addEventListener('play',           _lsCpUpdateDisplay);
-  audioEl.addEventListener('pause',          _lsCpUpdateDisplay);
-
   if (appState.timerCountdown) {
-    // Countdown: hide play button, auto-play from 0, lock pause, track when section ends
+    // Countdown: wire time display, hide play button, auto-play from 0, lock pause, track when section ends
+    audioEl.addEventListener('timeupdate',     _lsCpUpdateDisplay);
+    audioEl.addEventListener('loadedmetadata', _lsCpUpdateDisplay);
+    audioEl.addEventListener('play',           _lsCpUpdateDisplay);
+    audioEl.addEventListener('pause',          _lsCpUpdateDisplay);
     const playBtn = player.querySelector('.ls-cp-play');
     if (playBtn) playBtn.style.display = 'none';
     audioEl.play().catch(() => {});
@@ -629,12 +622,8 @@ function _updateListeningPlayerBar(section, firstStart) {
     audioEl.addEventListener('ended', () => {
       _audioFinishedSections.add(section.id);
     }, { once: true });
-  } else if (firstStart != null && firstStart >= 0) {
-    // Practice mode: seek to first question's timestamp
-    const doSeek = () => { audioEl.currentTime = firstStart; };
-    if (audioEl.readyState >= 1) doSeek();
-    else audioEl.addEventListener('loadedmetadata', doSeek, { once: true });
   }
+  // Practice mode: native player — audio always starts from the beginning (no seek needed)
 }
 
 /* Returns true if section sectionId is allowed to start playing (countdown mode).
@@ -694,12 +683,16 @@ function _buildAudioPlayer(url) {
       src="https://drive.google.com/file/d/${gdMatch[1]}/preview"
       allow="autoplay" allowfullscreen></iframe>`;
   }
-  // Custom player: no scrubber — just a play/pause button + time counter
-  return `<div class="ls-custom-player">
-    <audio class="ls-audio-el" src="${url}" preload="auto"></audio>
-    <button class="ls-cp-play" id="ls-cp-play" onclick="lsCpToggle()" title="Play / Pause">&#9654;</button>
-    <span class="ls-cp-time" id="ls-cp-time">0:00</span>
-  </div>`;
+  if (appState.timerCountdown) {
+    // Timed mode: custom scrubber-free player
+    return `<div class="ls-custom-player">
+      <audio class="ls-audio-el" src="${url}" preload="auto"></audio>
+      <button class="ls-cp-play" id="ls-cp-play" onclick="lsCpToggle()" title="Play / Pause">&#9654;</button>
+      <span class="ls-cp-time" id="ls-cp-time">0:00</span>
+    </div>`;
+  }
+  // Practice mode: native player with scrubber
+  return `<audio class="ls-audio-el listening-audio-player" src="${url}" controls preload="auto"></audio>`;
 }
 
 /* ============================================================
