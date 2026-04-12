@@ -699,6 +699,39 @@ iframe.listening-audio-player { height: 80px; }
 }
 .ls-note-input:focus { outline: none; border-bottom-color: var(--primary); }
 
+/* ── Note completion (inline / section format) ───────────────── */
+.ls-note-title          { font-weight: 700; font-size: 1rem; margin: 0.9rem 0 0.5rem; color: var(--text); }
+.ls-note-section-heading{ font-weight: 600; font-size: 0.93rem; margin: 0.8rem 0 0.2rem; color: var(--text); }
+.ls-note-group-inline   { margin: 0.5rem 0; }
+.ls-note-section-lines  { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 0.25rem; }
+.ls-note-inline-line    { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem;
+                           font-size: 0.9rem; line-height: 2; }
+.ls-note-before, .ls-note-after { color: var(--text); }
+
+/* ── Note completion: blocks/document format ──────────────── */
+.ls-nc-document   { margin: 0.5rem 0; font-size: 0.92rem; }
+.ls-nc-heading    { font-weight: 700; font-size: 1rem; margin: 0.9rem 0 0.4rem; color: var(--text); }
+.ls-nc-subheading { font-weight: 600; margin: 0.75rem 0 0.2rem; color: var(--text); }
+.ls-nc-line       { display: flex; align-items: center; flex-wrap: wrap;
+                    gap: 0.25rem; margin: 0.25rem 0; line-height: 2.2; }
+.ls-nc-bullet     { margin-right: 0.3rem; flex-shrink: 0; }
+.ls-nc-text       { white-space: pre-wrap; }
+
+/* ── Matching (options list + dropdowns) ─────────────────────── */
+.ls-matching-block  { }
+.ls-matching-options { background: var(--sidebar-bg, #f8f9fa); border-radius: 8px;
+                       padding: 0.75rem 1rem; margin: 0.5rem 0 1rem; }
+.ls-matching-options-heading { font-weight: 700; margin-bottom: 0.4rem; font-size: 0.9rem; }
+.ls-matching-option { font-size: 0.88rem; margin: 0.2rem 0; line-height: 1.5; }
+.ls-matching-option strong { display: inline-block; min-width: 1.4rem; color: var(--text); }
+.ls-matching-questions { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
+.ls-matching-row  { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.ls-matching-row-text { font-size: 0.9rem; min-width: 3rem; }
+.ls-matching-select { font-size: 0.88rem; padding: 0.25rem 0.4rem; border-radius: 5px;
+                      border: 1.5px solid var(--border); background: var(--card-bg, #fff);
+                      color: var(--text); cursor: pointer; min-width: 4rem; }
+.ls-matching-select:focus { outline: none; border-color: var(--primary); }
+
 /* ── Token-based sentence / summary completions ─────────────── */
 .ls-sentence-tokens { line-height: 2.5; font-size: 0.93rem; }
 .ls-token-text { }

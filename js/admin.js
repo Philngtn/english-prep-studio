@@ -465,6 +465,12 @@ function adminSidebarSelectTest(pkgId, testId) {
     _aPkg  = pkgId;
     _aTest = testId;
     _aListeningPart = 0;
+    // If the sec-tabs aren't in the DOM (coming from the "no test" placeholder),
+    // a full re-render is needed to inject the tabs + topbar + editor together.
+    if (!document.getElementById('adminSecTabs')) {
+      renderAdmin();
+      return;
+    }
     const test   = TEST_PACKAGES[pkgId] && TEST_PACKAGES[pkgId].tests[testId];
     const editor = document.getElementById('adminEditor');
     if (editor) {
@@ -756,21 +762,27 @@ async function _buildMain() {
   // Ensure the active package is expanded in the sidebar on every render
   _aExpandedPkgs.add(_aPkg);
 
+  const editorArea = test ? `
+    <div class="admin-sec-tabs" id="adminSecTabs">
+      ${_buildSecTabsInnerHTML()}
+    </div>
+    <div class="admin-editor-topbar">
+      <button class="btn btn-sm btn-outline" onclick="adminShowImportSectionModal()">&#8679; Import JSON</button>
+    </div>
+    <div class="admin-editor" id="adminEditor">
+      ${_buildEditor(test)}
+    </div>` : `
+    <div id="adminEditor" style="display:flex;align-items:center;justify-content:center;height:100%;min-height:260px;color:var(--text-muted);font-size:0.95rem;">
+      Select a test from the sidebar, or create a new package to get started.
+    </div>`;
+
   return `
   <div class="admin-test-layout">
     <div class="admin-pkg-sidebar" id="adminPkgSidebar">
       ${_buildPkgSidebarHTML()}
     </div>
     <div class="admin-editor-area">
-      <div class="admin-sec-tabs" id="adminSecTabs">
-        ${_buildSecTabsInnerHTML()}
-      </div>
-      <div class="admin-editor-topbar">
-        <button class="btn btn-sm btn-outline" onclick="adminShowImportSectionModal()">&#8679; Import JSON</button>
-      </div>
-      <div class="admin-editor" id="adminEditor">
-        ${_buildEditor(test)}
-      </div>
+      ${editorArea}
     </div>
   </div>`;
 }
@@ -787,166 +799,227 @@ function _buildEditor(test) {
 /* ==============================================================
    LISTENING EDITOR — JSON IMPORT SCHEMA
    ============================================================== */
-const LISTENING_JSON_SCHEMA = `{
-  "sections": [
+const LISTENING_JSON_SCHEMA = `
+==============================================================
+  IELTS LISTENING — JSON IMPORT SCHEMA
+  Paste into Admin → Listening Editor → Import JSON
+==============================================================
+
+TOP-LEVEL FORMAT
+{
+  "sections": [                    ← wrap everything in sections[]
     {
-      "section_id": 1,
-      "title": "Part 1: Accommodation Enquiry",
-      "audio_url": "audio/section1.mp3",
-      "transcript": "...",
-      "groups": [
-
-        // ── form_completion ──────────────────────────────────
-        { "type": "form_completion",
-          "answer_rule": "ONE WORD AND/OR A NUMBER",
-          "instruction": "Complete the form below.",
-          "questions": [
-            { "id": 1, "label": "First name",  "answer": ["Emma"],      "start": 18 },
-            { "id": 2, "label": "Postcode",    "answer": ["DW30 7YZ"],  "start": 24 }
-          ]
-        },
-
-        // ── note_completion ──────────────────────────────────
-        { "type": "note_completion",
-          "answer_rule": "NO MORE THAN TWO WORDS",
-          "questions": [
-            { "id": 3, "label": "Venue type", "answer": ["sports centre"], "start": 40 },
-            { "id": 4, "label": "Open from",  "answer": ["7am"],           "start": 46 }
-          ]
-        },
-
-        // ── sentence_completion (simple — label with blank implied) ─
-        { "type": "sentence_completion",
-          "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
-          "questions": [
-            { "id": 8, "label": "The café opens at ________.", "answer": ["8am"], "start": 72 }
-          ]
-        },
-
-        // ── sentence_completion (token-based — blank embedded in sentence) ─
-        { "type": "sentence_completion",
-          "answer_rule": "ONE WORD ONLY",
-          "questions": [
-            {
-              "id": 9,
-              "tokens": [
-                {"type":"text","value":"Car parking costs "},
-                {"type":"blank","id":9},
-                {"type":"text","value":" per hour."}
-              ],
-              "answer": ["£2"], "start": 78
-            }
-          ]
-        },
-
-        // ── summary_completion (flowing paragraph with inline blanks) ─
-        { "type": "summary_completion",
-          "answer_rule": "ONE WORD ONLY",
-          "instruction": "Complete the summary below.",
-          "questions": [
-            {
-              "id": 10,
-              "tokens": [
-                {"type":"text","value":"The centre was built in "},
-                {"type":"blank","id":10},
-                {"type":"text","value":" and expanded "},
-                {"type":"blank","id":11},
-                {"type":"text","value":" times since."}
-              ],
-              "answer": ["1998"], "start": 90
-            },
-            { "id": 11, "label": "Number of expansions", "answer": ["three"], "start": 95 }
-          ]
-        },
-
-        // ── table_completion ─────────────────────────────────
-        { "type": "table_completion",
-          "columns": ["Activity", "Day", "Cost"],
-          "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
-          "questions": [
-            { "id": 5, "row": "Swimming", "col": "Day",  "answer": ["Monday"],   "start": 55 },
-            { "id": 6, "row": "Swimming", "col": "Cost", "answer": ["£4.50"],    "start": 58 },
-            { "id": 7, "row": "Yoga",     "col": "Day",  "answer": ["Thursday"], "start": 63 }
-          ]
-        },
-
-        // ── flow_chart ───────────────────────────────────────
-        { "type": "flow_chart",
-          "answer_rule": "ONE WORD ONLY",
-          "questions": [
-            { "id": 31, "node": 1, "prefix": "Water collected from", "answer": ["river"],     "suffix": "",                  "start": 290 },
-            { "id": 32, "node": 2, "prefix": "Passed through a",     "answer": ["filter"],    "suffix": "to remove solids",  "start": 295 },
-            { "id": 33, "node": 3, "prefix": "Treated with",         "answer": ["chemicals"], "suffix": "to kill bacteria",  "start": 302 }
-          ]
-        },
-
-        // ── multiple_choice (single answer) ──────────────────
-        { "type": "multiple_choice",
-          "questions": [
-            { "id": 11, "text": "What is the main purpose?", "options": ["A. Transport", "B. Health", "C. Education"], "answer": ["B"], "start": 105 }
-          ]
-        },
-
-        // ── multiple_choice (two answers) ────────────────────
-        { "type": "multiple_choice", "multi": true, "count": 2,
-          "questions": [
-            { "id": 14, "text": "Which TWO activities are available?",
-              "options": ["A. Swimming", "B. Running", "C. Cycling", "D. Hiking", "E. Dancing"],
-              "answer": ["A", "C"], "start": 140 }
-          ]
-        },
-
-        // ── matching ─────────────────────────────────────────
-        { "type": "matching",
-          "options": ["A. Monday", "B. Tuesday", "C. Wednesday", "D. Thursday", "E. Friday"],
-          "questions": [
-            { "id": 16, "text": "Pilates",  "answer": ["C"], "start": 158 },
-            { "id": 17, "text": "Spinning", "answer": ["A"], "start": 163 }
-          ]
-        },
-
-        // ── map_labeling ──────────────────────────────────────
-        // Upload an image in Admin → use "Place Boxes" to set x/y visually
-        // x, y are percentages (0–100) from top-left of the image
-        { "type": "map_labeling",
-          "answer_rule": "ONE WORD ONLY",
-          "image": "https://your-supabase-url/storage/v1/object/public/media/diagrams/map.jpg",
-          "labels": [
-            { "id": 21, "label": "A", "answer": ["café"],         "start": 202, "x": 22.5, "y": 38.0 },
-            { "id": 22, "label": "B", "answer": ["changing room"],"start": 208, "x": 55.0, "y": 62.5 }
-          ]
-        },
-
-        // ── diagram_labeling ─────────────────────────────────
-        { "type": "diagram_labeling",
-          "image": "https://your-supabase-url/storage/v1/object/public/media/diagrams/diagram.jpg",
-          "labels": [
-            { "id": 26, "label": "1", "answer": ["inlet valve"], "start": 240, "x": 15.0, "y": 25.0 },
-            { "id": 27, "label": "2", "answer": ["filter mesh"], "start": 246, "x": 50.0, "y": 50.0 }
-          ]
-        },
-
-        // ── plan_labeling (floor plan / building layout) ──────
-        { "type": "plan_labeling",
-          "image": "https://your-supabase-url/storage/v1/object/public/media/diagrams/floor-plan.jpg",
-          "labels": [
-            { "id": 30, "label": "A", "answer": ["reception"], "start": 270, "x": 40.0, "y": 30.0 }
-          ]
-        },
-
-        // ── short_answer ─────────────────────────────────────
-        { "type": "short_answer",
-          "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
-          "questions": [
-            { "id": 36, "text": "What material is the roof made from?",    "answer": ["bamboo"],       "start": 340 },
-            { "id": 37, "text": "How many floors does the building have?", "answer": ["three", "3"],  "start": 346 }
-          ]
-        }
-
-      ]
+      "section_id": 1,             ← 1–4
+      "title": "Part 1: ...",
+      "audio_url": "audio/part1.mp3",
+      "transcript": "...",         ← optional, shown in review
+      "groups": [ ... ]            ← question groups for this part
     }
   ]
-}`;
+}
+
+"Replace All" wipes the target part and loads fresh.
+"Append" merges groups into the existing part.
+
+RULES
+- "id" must be a unique integer (the question number shown to students).
+- "answer" is always an array: ["word"] or ["A","C"] for multi.
+- "start" is the approximate audio timestamp in seconds when the answer is spoken.
+- "answer_rule" is shown as a hint: "ONE WORD ONLY", "NO MORE THAN TWO WORDS AND/OR A NUMBER", etc.
+
+--------------------------------------------------------------
+QUESTION TYPES
+--------------------------------------------------------------
+
+1. form_completion   ← labelled boxes, typical Part 1 forms
+   { "type": "form_completion",
+     "answer_rule": "ONE WORD AND/OR A NUMBER",
+     "questions": [
+       { "id": 1, "label": "Name",    "answer": ["Emma"],     "start": 18 },
+       { "id": 2, "label": "Postcode","answer": ["DW30 7YZ"], "start": 24 }
+     ]
+   }
+
+2. note_completion  ← document with headings + inline blanks (preferred)
+   Use "blocks" + "questions". Each block is one visual line.
+   Block types:
+     "heading"     → bold large title
+     "subheading"  → bold section title
+     "line"        → normal text line
+     "bullet_line" → line prefixed with –
+   Lines WITHOUT a blank: use  "text": "plain text here"
+   Lines WITH blank(s):   use  "tokens": [...]
+   Token types inside tokens[]:
+     { "type": "text",  "value": "words" }
+     { "type": "blank", "id": N }          ← N matches questions[].id
+
+   { "type": "note_completion",
+     "answer_rule": "ONE WORD AND/OR A NUMBER",
+     "blocks": [
+       { "type": "subheading", "text": "Recommended Trips" },
+       { "type": "line",
+         "tokens": [
+           { "type": "text",  "value": "A" },
+           { "type": "blank", "id": 3 },
+           { "type": "text",  "value": "tour of the city centre" }
+         ]
+       },
+       { "type": "subheading", "text": "Food" },
+       { "type": "line",  "text": "Clacton Market:" },
+       { "type": "bullet_line",
+         "tokens": [
+           { "type": "text",  "value": "Good for" },
+           { "type": "blank", "id": 4 },
+           { "type": "text",  "value": "food" }
+         ]
+       },
+       { "type": "bullet_line", "text": "Roots Music Festival" }
+     ],
+     "questions": [
+       { "id": 3, "answer": ["guided"], "start": 45 },
+       { "id": 4, "answer": ["fresh"],  "start": 80 }
+     ]
+   }
+
+3. sentence_completion  ← each question is one sentence with a blank
+   Simple (label): { "id": 5, "label": "The café opens at ________.", "answer": ["8am"], "start": 72 }
+   Token-based:
+   { "id": 6,
+     "tokens": [
+       {"type":"text","value":"Car parking costs "},
+       {"type":"blank","id":6},
+       {"type":"text","value":" per hour."}
+     ],
+     "answer": ["£2"], "start": 78
+   }
+
+4. summary_completion  ← flowing paragraph with multiple inline blanks
+   First question carries all tokens (others just have id+answer+start):
+   { "type": "summary_completion",
+     "answer_rule": "ONE WORD ONLY",
+     "questions": [
+       { "id": 7,
+         "tokens": [
+           {"type":"text","value":"Built in "},
+           {"type":"blank","id":7},
+           {"type":"text","value":", expanded "},
+           {"type":"blank","id":8},
+           {"type":"text","value":" times."}
+         ],
+         "answer": ["1998"], "start": 90
+       },
+       { "id": 8, "answer": ["three"], "start": 95 }
+     ]
+   }
+
+5. table_completion
+   { "type": "table_completion",
+     "columns": ["Activity","Day","Cost"],
+     "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
+     "questions": [
+       { "id": 9,  "row": "Swimming", "col": "Day",  "answer": ["Monday"], "start": 55 },
+       { "id": 10, "row": "Swimming", "col": "Cost", "answer": ["£4.50"],  "start": 58 }
+     ]
+   }
+
+6. flow_chart
+   { "type": "flow_chart",
+     "answer_rule": "ONE WORD ONLY",
+     "questions": [
+       { "id": 11, "node": 1, "prefix": "Water collected from", "answer": ["river"],   "suffix": "",                 "start": 290 },
+       { "id": 12, "node": 2, "prefix": "Passed through a",     "answer": ["filter"],  "suffix": "to remove solids", "start": 295 }
+     ]
+   }
+
+7. multiple_choice  (single answer)
+   { "type": "multiple_choice",
+     "questions": [
+       { "id": 13, "text": "What is the main purpose?",
+         "options": ["A. Transport","B. Health","C. Education"],
+         "answer": ["B"], "start": 105 }
+     ]
+   }
+
+8. multiple_choice  (two or more answers) — add "multi": true, "count": N
+   { "type": "multiple_choice", "multi": true, "count": 2,
+     "questions": [
+       { "id": 14, "text": "Which TWO activities are available?",
+         "options": ["A. Swimming","B. Running","C. Cycling","D. Hiking","E. Dancing"],
+         "answer": ["A","C"], "start": 140 }
+     ]
+   }
+
+9. matching  ← options shown as reference list; each question has a dropdown
+   "options_heading" (optional) — bold title above the options list
+   "options" — shared list shown to student, format "A. description"
+   "text" on each question — the label/year the student is matching (e.g. "1870")
+   "answer" — the correct letter e.g. ["E"]
+   { "type": "matching",
+     "instruction": "Which event took place in each of the following years? Choose SIX answers from the box and write the correct letter, A–H.",
+     "options_heading": "Events in the history of football",
+     "options": [
+       "A. the introduction of pay for the players",
+       "B. a change to the design of the goal",
+       "C. the first use of lights for matches",
+       "D. the introduction of goalkeepers",
+       "E. the first international match",
+       "F. two changes to the rules of the game",
+       "G. the introduction of a fee for spectators",
+       "H. an agreement on the length of a game"
+     ],
+     "questions": [
+       { "id": 15, "text": "1870", "answer": ["E"], "start": 120 },
+       { "id": 16, "text": "1874", "answer": ["G"], "start": 135 },
+       { "id": 17, "text": "1875", "answer": ["H"], "start": 148 }
+     ]
+   }
+
+10. short_answer
+    { "type": "short_answer",
+      "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
+      "questions": [
+        { "id": 18, "text": "What material is the roof made from?", "answer": ["bamboo"], "start": 340 }
+      ]
+    }
+
+11. map_labeling / diagram_labeling / plan_labeling
+    x and y are set visually in Admin with "Place Boxes" — leave as 0 when generating.
+    { "type": "map_labeling",
+      "answer_rule": "ONE WORD ONLY",
+      "image": "https://SUPABASE_URL/storage/v1/object/public/media/diagrams/map.jpg",
+      "labels": [
+        { "id": 21, "label": "A", "answer": ["café"],          "start": 202, "x": 0, "y": 0 },
+        { "id": 22, "label": "B", "answer": ["changing room"], "start": 208, "x": 0, "y": 0 }
+      ]
+    }
+
+==============================================================
+  CHATGPT PROMPT — copy and paste this to ChatGPT
+==============================================================
+I am building an IELTS Listening mock test. Convert the transcript below into a JSON question set for one listening part. Output ONLY valid JSON — no explanation, no markdown fences.
+
+RULES:
+1. Wrap everything in: { "sections": [{ "section_id": 1, "title": "Part 1: ...", "audio_url": "", "groups": [...] }] }
+2. Question "id" values must be consecutive integers starting from [START_ID].
+3. "answer" is always an array e.g. ["word"] or ["A","C"].
+4. "start" is the approximate second in the audio when the answer is spoken.
+5. Choose question types that match the content naturally.
+
+FOR note_completion — use this format (NOT label/answer rows):
+  "blocks": [ array of block objects ] + "questions": [ {id, answer, start} ]
+  Block types: "heading" (bold title), "subheading" (bold section), "line" (normal), "bullet_line" (– bullet)
+  Lines with blanks → "tokens": [{"type":"text","value":"..."}, {"type":"blank","id":N}, ...]
+  Lines with no blank → "text": "plain text here"
+
+FOR sentence_completion with inline blanks → use "tokens" array per question.
+FOR summary_completion with multiple blanks → put all tokens on first question only; other questions just need id+answer+start.
+FOR multiple_choice two answers → add "multi": true, "count": 2 on the group.
+FOR matching → "options" is the shared A–H list shown to students (format: "A. description"); "text" on each question is the label/year being matched; add "options_heading" for the bold title above the list.
+FOR map/diagram labeling → set x and y to 0 (positions are set visually in the admin tool).
+
+TRANSCRIPT:
+[PASTE TRANSCRIPT HERE]
+==============================================================`;
 
 const READING_JSON_SCHEMA = `
 ==============================================================
@@ -1364,21 +1437,66 @@ function _lsGroupsToFlat(section, si) {
     const instruction = group.instruction || '';
     const isMulti     = type === 'multi' || group.multi === true;
 
+    // Blocks+tokens note_completion: { blocks: [...], questions: [{id,answer,start}] }
+    if (type === 'note_completion' && group.blocks) {
+      (group.questions || []).forEach((q, ii) => {
+        const peer = {
+          id:            `t_s${si}_g${gi}_${ii}_${Date.now()}`,
+          qNum:          q.id,
+          type:          'note_completion',
+          answer:        Array.isArray(q.answer) ? q.answer[0] : (q.answer || ''),
+          questionStart: q.start || 0,
+          groupId,
+          answerRule:    ii === 0 ? answerRule : '',
+        };
+        if (ii === 0) peer.noteBlocks = group.blocks;
+        flat.push(peer);
+      });
+      return;  // handled — skip generic items loop below
+    }
+
+    // New-format note_completion: { sections: [{heading, lines:[{id,before,after,answer,start}]}] }
+    if (type === 'note_completion' && group.sections) {
+      let lineIdx = 0;
+      group.sections.forEach((sec, _secI) => {
+        (sec.lines || []).forEach((line, li) => {
+          const ans = Array.isArray(line.answer) ? line.answer[0] : (line.answer || '');
+          const q = {
+            id:             `t_s${si}_g${gi}_${lineIdx}_${Date.now()}`,
+            qNum:           line.id || (flat.length + 1),
+            type:           'note_completion',
+            before:         line.before != null ? line.before : '',
+            after:          line.after  != null ? line.after  : '',
+            answer:         ans,
+            questionStart:  line.start || 0,
+            groupId,
+            answerRule:     lineIdx === 0 ? answerRule        : '',
+            groupTitle:     lineIdx === 0 ? (group.title || '') : '',
+            sectionHeading: li === 0      ? (sec.heading || '') : '',
+          };
+          flat.push(q);
+          lineIdx++;
+        });
+      });
+      return;  // handled — skip generic items loop below
+    }
+
     items.forEach((item, ii) => {
       const ans = Array.isArray(item.answer) ? item.answer[0] : (item.answer || '');
       const q = {
-        id:      `t_s${si}_g${gi}_${ii}_${Date.now()}`,
-        qNum:    item.id || (flat.length + 1),
-        type:    isMulti ? 'multi' : type,
-        text:    item.label || item.text || '',
-        answer:  isMulti ? (Array.isArray(item.answer) ? item.answer.join(', ') : ans) : ans,
-        start:   item.start || 0,
+        id:            `t_s${si}_g${gi}_${ii}_${Date.now()}`,
+        qNum:          item.id || (flat.length + 1),
+        type:          isMulti ? 'multi' : type,
+        text:          item.label || item.text || '',
+        answer:        isMulti ? (Array.isArray(item.answer) ? item.answer.join(', ') : ans) : ans,
+        questionStart: item.start || 0,
         options: group.options || item.options || [],
         count:   group.count  || item.count  || 1,
       };
       if (isGroup) q.groupId = groupId;
       if (answerRule)  q.answerRule  = answerRule;
       if (instruction) q.instruction = ii === 0 ? instruction : '';  // only first in group
+      if (type === 'matching' && ii === 0) q.optionsHeading = group.options_heading || group.optionsHeading || '';
       if (isGfx)  { q.groupImage = group.image || ''; q.xPct = item.x || 0; q.yPct = item.y || 0; q.labelText = item.label || ''; }
       if (type === 'flow_chart')       { q.nodeNum = item.node || (ii + 1); q.prefix = item.prefix || ''; q.suffix = item.suffix || ''; }
       if (type === 'table_completion') { q.rowContext = item.row || ''; q.colContext = item.col || ''; q.groupColumns = group.columns || []; }
@@ -1421,7 +1539,8 @@ function adminImportListeningJSON(si, replaceAll) {
   if (section.transcript && !data.sections[si].transcript) data.sections[si].transcript = section.transcript;
 
   _applyListeningEditorState(data);
-  showToast(`Imported ${flatQs.length} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
+  _persistSection(_aPkg, _aTest, 'listening', _collectListeningData());
+  showToast(`Imported and saved ${flatQs.length} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
 }
 
 /**
@@ -1459,7 +1578,8 @@ function adminImportListeningSection(parsed, replaceAll) {
     if (sec.transcript) base.sections[si].transcript = sec.transcript;
   });
   _applyListeningEditorState(base);
-  showToast(`Imported ${incoming.length} section(s), ${totalQs} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
+  _persistSection(_aPkg, _aTest, 'listening', _collectListeningData());
+  showToast(`Imported and saved ${incoming.length} section(s), ${totalQs} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
 }
 
 /* ── JSON export ──────────────────────────────────────────────── */
@@ -1513,6 +1633,7 @@ function _lsFlatToGroups(questions, si, secMeta) {
         }));
       } else if (type === 'matching') {
         grp.options   = peers[0].options || [];
+        if (peers[0].optionsHeading) grp.options_heading = peers[0].optionsHeading;
         grp.questions = peers.map(p => ({ id: p.qNum, text: p.text || '', answer: [p.answer || ''], start: p.questionStart || 0 }));
       } else if (type === 'mcq') {
         grp.questions = peers.map(p => ({
@@ -1531,8 +1652,31 @@ function _lsFlatToGroups(questions, si, secMeta) {
         grp.questions = peers.map(p => ({
           id: p.qNum, tokens: p.tokens, answer: [p.answer || ''], start: p.questionStart || 0
         }));
+      } else if (type === 'note_completion' && peers[0].noteBlocks) {
+        grp.blocks    = peers[0].noteBlocks;
+        grp.questions = peers.map(p => ({
+          id: p.qNum, answer: p.answer || '', start: p.questionStart || 0
+        }));
+      } else if (type === 'note_completion' && peers[0].before != null) {
+        // New inline format: reconstruct sections from sectionHeading markers
+        grp.title = peers[0].groupTitle || '';
+        grp.sections = [];
+        let currentSection = null;
+        peers.forEach(p => {
+          if (p.sectionHeading || currentSection === null) {
+            currentSection = { heading: p.sectionHeading || '', lines: [] };
+            grp.sections.push(currentSection);
+          }
+          currentSection.lines.push({
+            id:     p.qNum,
+            before: p.before || '',
+            after:  p.after  || '',
+            answer: p.answer || '',
+            start:  p.questionStart || 0,
+          });
+        });
       } else {
-        // form_completion, note_completion, sentence_completion (label), summary_completion
+        // form_completion, note_completion (legacy), sentence_completion (label), summary_completion
         grp.questions = peers.map(p => ({ id: p.qNum, label: p.text || '', answer: [p.answer || ''], start: p.questionStart || 0 }));
       }
       groups.push(grp);
@@ -1880,10 +2024,15 @@ function _buildListeningQuestionRow(si, qi, q) {
                    : _LS_GFX_TYPES.includes(type) ? ' (e.g. café)' : '';
 
   const optionsSection = (type === 'mcq' || type === 'multi' || type === 'matching') ? `
+    ${type === 'matching' ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
-      <label class="admin-label">Options (one per line)</label>
-      <textarea class="admin-textarea" id="ls-opts-${si}-${qi}" rows="4"
-        placeholder="Option A&#10;Option B&#10;...">${_esc(options.join('\n'))}</textarea>
+      <label class="admin-label">Options Heading <small style="color:var(--text-muted);">(e.g. "Events in the history of football")</small></label>
+      <input class="admin-input" id="ls-opthead-${si}-${qi}" value="${_esc(q.optionsHeading||'')}" placeholder="e.g. Events in the history of football">
+    </div>` : ''}
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Options (one per line${type === 'matching' ? ' — e.g. "A. the introduction of pay for players"' : ''})</label>
+      <textarea class="admin-textarea" id="ls-opts-${si}-${qi}" rows="5"
+        placeholder="${type === 'matching' ? 'A. description&#10;B. description&#10;C. description' : 'Option A&#10;Option B&#10;...'}">${_esc(options.join('\n'))}</textarea>
     </div>` : '';
 
   const countSection = type === 'multi' ? `
@@ -1955,6 +2104,40 @@ function _buildListeningQuestionRow(si, qi, q) {
       <input class="admin-input" id="ls-grpid-${si}-${qi}" value="${_esc(q.groupId||'')}" placeholder="e.g. map_part1_a">
     </div>`;
 
+  // Note completion: blocks+tokens format shows a JSON textarea; old format shows before/after/heading fields
+  const noteSection = type === 'note_completion' ? (q.noteBlocks ? `
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Blocks JSON <small style="color:var(--text-muted);">(blocks+tokens document — first question carries the full layout)</small></label>
+      <textarea class="admin-input admin-textarea" id="ls-noteblocks-${si}-${qi}" rows="6"
+        style="font-family:monospace;font-size:0.78rem;white-space:pre;">${_esc(JSON.stringify(q.noteBlocks, null, 2))}</textarea>
+    </div>` : `
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Note Title <small style="color:var(--text-muted);">(set on first question only, e.g. "Advice on Family Visit")</small></label>
+      <input class="admin-input" id="ls-notetitle-${si}-${qi}" value="${_esc(q.groupTitle||'')}" placeholder="e.g. Advice on Family Visit">
+    </div>
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Section Heading <small style="color:var(--text-muted);">(set on first line of each section, e.g. "Accommodation")</small></label>
+      <input class="admin-input" id="ls-notesec-${si}-${qi}" value="${_esc(q.sectionHeading||'')}" placeholder="e.g. Accommodation">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.5rem;">
+      <div class="admin-field-row">
+        <label class="admin-label">Text <em>before</em> blank</label>
+        <input class="admin-input" id="ls-before-${si}-${qi}" value="${_esc(q.before||'')}" placeholder="e.g. A trip by">
+      </div>
+      <div class="admin-field-row">
+        <label class="admin-label">Text <em>after</em> blank</label>
+        <input class="admin-input" id="ls-after-${si}-${qi}" value="${_esc(q.after||'')}" placeholder="e.g. to the old fort">
+      </div>
+    </div>`) : '';
+
+  // Generic text field — hidden for note_completion (replaced by before/after above)
+  const textSection = type !== 'note_completion' ? `
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">${textLabel}</label>
+      <input class="admin-input" id="ls-text-${si}-${qi}"
+        value="${_esc(text)}" placeholder="${_LS_GFX_TYPES.includes(type) ? 'A' : 'Question text'}">
+    </div>` : `<input type="hidden" id="ls-text-${si}-${qi}" value="">`;
+
   return `
     <div class="admin-q-row" id="ls-q-${si}-${qi}">
       <div class="admin-q-header">
@@ -1966,11 +2149,8 @@ function _buildListeningQuestionRow(si, qi, q) {
         <button class="btn btn-sm btn-danger admin-remove-btn"
           onclick="adminRemoveListeningQ(${si},${qi})">&#10005;</button>
       </div>
-      <div class="admin-field-row" style="margin-top:0.5rem;">
-        <label class="admin-label">${textLabel}</label>
-        <input class="admin-input" id="ls-text-${si}-${qi}"
-          value="${_esc(text)}" placeholder="${_LS_GFX_TYPES.includes(type) ? 'A' : 'Question text'}">
-      </div>
+      ${textSection}
+      ${noteSection}
       <div class="admin-field-row" style="margin-top:0.5rem;">
         <label class="admin-label">Answer${answerHint}</label>
         <input class="admin-input" id="ls-ans-${si}-${qi}"
@@ -1985,7 +2165,7 @@ function _buildListeningQuestionRow(si, qi, q) {
         <label class="admin-label">Question Start <small style="color:var(--text-muted);">(seconds into audio)</small></label>
         <div style="display:flex;gap:0.4rem;align-items:center;">
           <input class="admin-input" type="number" min="0" step="1" style="max-width:100px;"
-            id="ls-qstart-${si}-${qi}" value="${q.questionStart != null ? Math.round(q.questionStart) : ''}">
+            id="ls-qstart-${si}-${qi}" value="${q.questionStart != null ? Math.round(q.questionStart) : (q.start != null ? Math.round(q.start) : '')}">
           <button class="btn btn-sm btn-outline" style="flex-shrink:0;font-size:0.75rem;"
             onclick="adminSetLsTimestamp(${si},${qi})" title="Capture current audio position">&#9201; Capture</button>
         </div>
@@ -2037,7 +2217,8 @@ function _collectListeningData() {
         ? rawAns.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
         : rawAns.trim();
       const parsedNum  = qNum && !isNaN(qNum) ? parseInt(qNum) : (qNum || '');
-      const groupId    = _val(`ls-grpid-${si}-${qi}`);
+      const groupId       = _val(`ls-grpid-${si}-${qi}`);
+      const optionsHeading = type === 'matching' ? _val(`ls-opthead-${si}-${qi}`) : undefined;
       const groupImage = _val(`ls-img-${si}-${qi}`);
       const xPct       = parseFloat(_val(`ls-xpct-${si}-${qi}`)) || 0;
       const yPct       = parseFloat(_val(`ls-ypct-${si}-${qi}`)) || 0;
@@ -2049,6 +2230,20 @@ function _collectListeningData() {
       const answerRule = _val(`ls-ansrule-${si}-${qi}`);
       const qsRaw = _val(`ls-qstart-${si}-${qi}`);
       const questionStart = qsRaw !== '' ? parseInt(qsRaw, 10) : NaN;
+      // Note completion: blocks+tokens format uses a noteBlocks textarea; old format uses before/after/heading fields
+      let noteBlocks = undefined, before = undefined, after = undefined, sectionHeading = undefined, groupTitle = undefined;
+      if (type === 'note_completion') {
+        const nbEl = document.getElementById(`ls-noteblocks-${si}-${qi}`);
+        if (nbEl) {
+          try { noteBlocks = JSON.parse(nbEl.value); } catch { noteBlocks = undefined; }
+        } else {
+          before         = _val(`ls-before-${si}-${qi}`);
+          after          = _val(`ls-after-${si}-${qi}`);
+          sectionHeading = _val(`ls-notesec-${si}-${qi}`);
+          groupTitle     = _val(`ls-notetitle-${si}-${qi}`);
+        }
+      }
+
       questions.push({
         id: `t_s${si}_q${qi}`,
         qNum: parsedNum,
@@ -2068,6 +2263,13 @@ function _collectListeningData() {
         ...(suffix      ? { suffix }     : {}),
         ...(answerRule  ? { answerRule } : {}),
         ...(questionStart >= 0 && !isNaN(questionStart) ? { questionStart } : {}),
+        // Note completion fields (undefined for other types → not serialised)
+        ...(noteBlocks     != null ? { noteBlocks }     : {}),
+        ...(before         != null ? { before }         : {}),
+        ...(after          != null ? { after }          : {}),
+        ...(sectionHeading != null ? { sectionHeading } : {}),
+        ...(groupTitle     != null ? { groupTitle }     : {}),
+        ...(optionsHeading != null ? { optionsHeading } : {}),
       });
       qi++;
     }
@@ -2366,7 +2568,8 @@ function adminImportReadingJSON(pi, replaceAll) {
   if (passage.text  && !data.passages[pi].text)  data.passages[pi].text  = passage.text;
 
   _applyReadingEditorState(data);
-  showToast(`Imported ${flatQs.length} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
+  _persistSection(_aPkg, _aTest, 'reading', _collectReadingData());
+  showToast(`Imported and saved ${flatQs.length} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
 }
 
 // Import a full reading section: { "passages": [ {passage_id, title, text, groups}, ... ] }
@@ -2400,7 +2603,8 @@ function adminImportReadingSection(parsed, replaceAll) {
   }
 
   _applyReadingEditorState(data);
-  showToast(`Imported ${incoming.length} passage(s), ${totalQs} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
+  _persistSection(_aPkg, _aTest, 'reading', _collectReadingData());
+  showToast(`Imported and saved ${incoming.length} passage(s), ${totalQs} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
 }
 
 function adminAddReadingPassage() {
@@ -2652,8 +2856,8 @@ function adminImportWritingJSON() {
     if (t.taskNum === 1) applyTask(t, 'wr-t1');
     if (t.taskNum === 2) applyTask(t, 'wr-t2');
   });
-  showToast(`Writing imported (${tasks.length} task${tasks.length > 1 ? 's' : ''}).`);
-  _adminSetDirty();
+  adminSaveWriting();
+  showToast(`Writing imported and saved (${tasks.length} task${tasks.length > 1 ? 's' : ''}).`);
 }
 
 /* ==============================================================
@@ -2893,7 +3097,8 @@ function adminImportSpeakingJSON() {
     }
   });
   _applySpeakingEditorState(data);
-  showToast(`Speaking imported (${parts.length} part${parts.length > 1 ? 's' : ''}).`);
+  _persistSection(_aPkg, _aTest, 'speaking', _collectSpeakingData());
+  showToast(`Speaking imported and saved (${parts.length} part${parts.length > 1 ? 's' : ''}).`);
 }
 
 /* ── Utility ──────────────────────────────────────────────── */

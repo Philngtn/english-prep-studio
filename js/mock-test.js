@@ -7,7 +7,22 @@ let _transcriptExpanded = false;
 /* ============================================================
    ===== TEST SECTION START =====
    ============================================================ */
+/* Show a friendly message when no content has been configured for a section */
+function _showNoContent(section) {
+  showModal(
+    'No Content Configured',
+    `No ${capitalize(section)} content has been set up for the selected test yet. ` +
+    `Go to the Admin panel and import content for this test first.`,
+    () => {}
+  );
+}
+
 function startTestSection(section) {
+  // Guard: reading and listening require admin-imported data
+  if (section === 'reading' || section === 'listening') {
+    if (!getActiveTestData(section)) { _showNoContent(section); return; }
+  }
+
   switchTab('mock-test');
   appState.test = {
     active: true,
@@ -78,7 +93,7 @@ function setupReadingTest() {
   appState.test.section = 'reading';
   appState.test.timerSeconds = 60 * 60;
   document.getElementById('timerSectionName').textContent = 'Reading';
-  const data = getActiveTestData('reading') || READING_DATA;
+  const data = getActiveTestData('reading');
   const qs = [];
   data.passages.forEach(p => p.questions.forEach(q => qs.push({...q, passageId: p.id})));
   appState.test.flatQuestions = qs;
@@ -89,7 +104,7 @@ function setupListeningTest() {
   appState.test.section = 'listening';
   appState.test.timerSeconds = 30 * 60;
   document.getElementById('timerSectionName').textContent = 'Listening';
-  const data = getActiveTestData('listening') || LISTENING_DATA;
+  const data = getActiveTestData('listening');
   const qs = [];
   data.sections.forEach(s => s.questions.forEach(q => qs.push({...q, sectionId: s.id})));
   appState.test.flatQuestions = qs;
@@ -345,7 +360,10 @@ function renderCurrentQuestion() {
   // Writing
   if (q.type === 'writing') {
     _updateListeningPlayerBar(null);
-    const writingData = getActiveTestData('writing') || WRITING_DATA;
+    const writingData = getActiveTestData('writing') || {
+      task1: { prompt: '', instructions: '', chartDescription: '', imageUrl: '', imageCaption: '', imageType: '', minWords: 150, rubric: [], sampleAnswer: '' },
+      task2: { prompt: '', instructions: '', minWords: 250, rubric: [], sampleAnswer: '' },
+    };
     const task  = q.taskNum === 1 ? writingData.task1 : writingData.task2;
     const saved = appState.test.answers[q.id] || '';
     const instrBlock = task.instructions ? `<div class="writing-instructions">${task.instructions}</div>` : '';
@@ -372,7 +390,11 @@ function renderCurrentQuestion() {
   // Speaking
   if (q.type === 'speaking') {
     _updateListeningPlayerBar(null);
-    const speakingData = getActiveTestData('speaking') || SPEAKING_DATA;
+    const speakingData = getActiveTestData('speaking') || {
+      part1: { title: 'Part 1', questions: [] },
+      part2: { title: 'Part 2', cueCard: '', followUp: '', sampleAnswer: '', prepTime: 60, speakingTime: 120 },
+      part3: { title: 'Part 3', questions: [] },
+    };
     const part = q.partNum;
     const data = part === 1 ? speakingData.part1 : part === 2 ? speakingData.part2 : speakingData.part3;
     let html = `<div class="passage-label">Speaking ${data.title}</div>`;
@@ -966,7 +988,10 @@ function submitTest() {
     // Self-assessed — give estimated band based on rubric checkboxes
     let checked = 0, total = 0;
     if (section === 'writing') {
-      const writingData = getActiveTestData('writing') || WRITING_DATA;
+      const writingData = getActiveTestData('writing') || {
+      task1: { prompt: '', instructions: '', chartDescription: '', imageUrl: '', imageCaption: '', imageType: '', minWords: 150, rubric: [], sampleAnswer: '' },
+      task2: { prompt: '', instructions: '', minWords: 250, rubric: [], sampleAnswer: '' },
+    };
       ['w1','w2'].forEach(wId => {
         const task = wId==='w1'?writingData.task1:writingData.task2;
         total += task.rubric.length;

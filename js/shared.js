@@ -246,3 +246,10 @@ function showToast(msg) {
 function capitalize(str) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
 }
+
+/* ============================================================
+   ===== TEST PACKAGES =====
+   Populated at startup by loadCustomTestPackages() + loadAdminOverrides().
+   All packages are created and managed through the Admin panel.
+   ============================================================ */
+const TEST_PACKAGES = {};

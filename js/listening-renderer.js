@@ -57,6 +57,8 @@ function lsRenderGroup(q, idx) {
     return lsRenderSentenceGroup(peers, rangeLabel);
   if (t === 'summary_completion')
     return lsRenderSummaryGroup(peers, rangeLabel);
+  if (t === 'matching')
+    return lsRenderMatchingGroup(peers, rangeLabel);
   return lsRenderGenericGroup(peers, rangeLabel);
 }
 
@@ -180,11 +182,76 @@ function lsRenderFormGroup(peers, rangeLabel) {
   </div>`;
 }
 
-/* ── Renderer: Note completion (line-based) ───────────────── */
+/* ── Renderer: Note completion ────────────────────────────── */
 function lsRenderNoteGroup(peers, rangeLabel) {
   const answerRule  = (peers[0] && peers[0].answerRule)  || '';
   const instruction = (peers[0] && peers[0].instruction) || '';
+  const groupTitle  = (peers[0] && peers[0].groupTitle)  || '';
 
+  // Blocks+tokens format: peers[0].noteBlocks carries the full document
+  if (peers[0] && peers[0].noteBlocks) {
+    const blankMap = {};
+    peers.forEach(p => { blankMap[p.qNum] = p; });
+
+    const blocksHtml = peers[0].noteBlocks.map(block => {
+      if (block.type === 'heading')    return `<div class="ls-nc-heading">${lsEsc(block.text || '')}</div>`;
+      if (block.type === 'subheading') return `<div class="ls-nc-subheading">${lsEsc(block.text || '')}</div>`;
+      const prefix = block.type === 'bullet_line' ? '<span class="ls-nc-bullet">–</span>' : '';
+      const innerHtml = _lsNcRenderTokens(block.tokens, block.text, blankMap);
+      return `<div class="ls-nc-line">${prefix}${innerHtml}</div>`;
+    }).join('');
+
+    return `<div class="question-block ls-nc-block" data-group="${lsEsc(peers[0].groupId || '')}">
+      <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
+      ${lsAnswerRule(answerRule)}
+      <div class="ls-nc-document">${blocksHtml}</div>
+    </div>`;
+  }
+
+  // Inline format: peers have before/after fields (new schema)
+  if (peers[0] && peers[0].before != null) {
+    // Group peers into visual sections by sectionHeading markers
+    const sections = [];
+    let cur = null;
+    peers.forEach(p => {
+      if (p.sectionHeading || cur === null) {
+        cur = { heading: p.sectionHeading || '', lines: [] };
+        sections.push(cur);
+      }
+      cur.lines.push(p);
+    });
+
+    const sectionsHtml = sections.map(sec => {
+      const linesHtml = sec.lines.map(p => {
+        const saved      = appState.test.answers[p.id] || '';
+        const beforeHtml = p.before ? `<span class="ls-note-before">${lsEsc(p.before)}</span>` : '';
+        const afterHtml  = p.after  ? `<span class="ls-note-after">${lsEsc(p.after)}</span>`   : '';
+        return `<div class="ls-note-inline-line">
+          ${beforeHtml}
+          <span class="ls-token-blank-wrap">
+            <span class="ls-token-blank-num">${p.qNum}</span>
+            <input type="text" class="ls-token-blank-input" value="${lsEsc(saved)}"
+              data-qid="${p.id}" oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
+          </span>
+          ${afterHtml}
+          ${lsJumpBtn(p.questionStart)}
+        </div>`;
+      }).join('');
+      const headingHtml = sec.heading
+        ? `<div class="ls-note-section-heading">${lsEsc(sec.heading)}</div>` : '';
+      return `${headingHtml}<div class="ls-note-section-lines">${linesHtml}</div>`;
+    }).join('');
+
+    return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+      <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
+      ${lsInstruction(instruction)}
+      ${lsAnswerRule(answerRule)}
+      ${groupTitle ? `<div class="ls-note-title">${lsEsc(groupTitle)}</div>` : ''}
+      <div class="ls-note-group-inline">${sectionsHtml}</div>
+    </div>`;
+  }
+
+  // Legacy format: simple label → input rows
   const linesHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-note-line">
@@ -202,6 +269,24 @@ function lsRenderNoteGroup(peers, rangeLabel) {
     ${lsAnswerRule(answerRule)}
     <div class="ls-note-group">${linesHtml}</div>
   </div>`;
+}
+
+function _lsNcRenderTokens(tokens, plainText, blankMap) {
+  if (!tokens || !tokens.length) return `<span class="ls-nc-text">${lsEsc(plainText || '')}</span>`;
+  return tokens.map(tok => {
+    if (tok.type === 'text') return `<span class="ls-nc-text">${lsEsc(tok.value || '')}</span>`;
+    if (tok.type === 'blank') {
+      const peer = blankMap[tok.id];
+      if (!peer) return '';
+      const saved = appState.test.answers[peer.id] || '';
+      return `<span class="ls-token-blank-wrap">
+        <span class="ls-token-blank-num">${peer.qNum}</span>
+        <input type="text" class="ls-token-blank-input" value="${lsEsc(saved)}"
+          data-qid="${peer.id}" oninput="saveAnswer('${peer.id}',this.value)" placeholder="...">
+      </span>${lsJumpBtn(peer.questionStart)}`;
+    }
+    return '';
+  }).join('');
 }
 
 /* ── Renderer: Sentence completion (token-based or label) ─── */
@@ -304,6 +389,54 @@ function lsRenderSummaryGroup(peers, rangeLabel) {
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
     ${bodyHtml}
+  </div>`;
+}
+
+/* ── Renderer: Matching (options list + dropdowns) ─────────── */
+function lsRenderMatchingGroup(peers, rangeLabel) {
+  const answerRule     = (peers[0] && peers[0].answerRule)     || '';
+  const instruction    = (peers[0] && peers[0].instruction)    || '';
+  const optionsHeading = (peers[0] && peers[0].optionsHeading) || '';
+  const options        = (peers[0] && peers[0].options)        || [];
+
+  // Reference list: "A. description", "B. description" …
+  const optionsHtml = options.length ? `
+    <div class="ls-matching-options">
+      ${optionsHeading ? `<div class="ls-matching-options-heading">${lsEsc(optionsHeading)}</div>` : ''}
+      ${options.map(opt => {
+        const m = String(opt).match(/^([A-Z])[.\s]+(.+)$/);
+        return m
+          ? `<div class="ls-matching-option"><strong>${lsEsc(m[1])}</strong> ${lsEsc(m[2])}</div>`
+          : `<div class="ls-matching-option">${lsEsc(opt)}</div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Question rows: [Q#] [year/label] [dropdown]
+  const questionsHtml = peers.map(p => {
+    const saved = appState.test.answers[p.id] || '';
+    const ddOpts = [`<option value="">–</option>`,
+      ...options.map(opt => {
+        const letter = String(opt).match(/^([A-Z])/)?.[1] || '';
+        const sel = letter && letter === saved.toUpperCase() ? ' selected' : '';
+        return `<option value="${lsEsc(letter)}"${sel}>${lsEsc(letter)}</option>`;
+      })
+    ].join('');
+    return `<div class="ls-matching-row">
+      <span class="ls-token-blank-num">${p.qNum}</span>
+      <span class="ls-matching-row-text">${lsEsc(p.text || '')}</span>
+      <select class="ls-matching-select" data-qid="${p.id}"
+        onchange="saveAnswer('${p.id}',this.value)">${ddOpts}</select>
+      ${lsJumpBtn(p.questionStart)}
+    </div>`;
+  }).join('');
+
+  return `<div class="question-block ls-matching-block" data-group="${lsEsc(peers[0].groupId || '')}">
+    <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
+    ${lsJumpBtn(peers[0].questionStart)}
+    ${lsInstruction(instruction)}
+    ${lsAnswerRule(answerRule)}
+    ${optionsHtml}
+    <div class="ls-matching-questions">${questionsHtml}</div>
   </div>`;
 }
 
