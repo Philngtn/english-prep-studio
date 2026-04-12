@@ -120,6 +120,13 @@ function _persistSection(pkgId, testId, secKey, data) {
   // Live-update the in-memory package
   const t = TEST_PACKAGES[pkgId] && TEST_PACKAGES[pkgId].tests[testId];
   if (t) t[secKey] = data;
+  // Sync mock-test active test to what was just saved so the test is immediately playable
+  if (typeof appState !== 'undefined') {
+    appState.activePackage = pkgId;
+    appState.activeTest    = testId;
+    const picker = document.getElementById('testPicker');
+    if (picker) picker.value = testId;
+  }
 }
 
 /* ── Auth (Supabase) ──────────────────────────────────────── */

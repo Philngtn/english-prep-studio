@@ -78,7 +78,9 @@ function setupReadingTest() {
   appState.test.section = 'reading';
   appState.test.timerSeconds = 60 * 60;
   document.getElementById('timerSectionName').textContent = 'Reading';
-  const data = getActiveTestData('reading') || READING_DATA;
+  const saved = getActiveTestData('reading');
+  const hasQs = saved && saved.passages && saved.passages.some(p => p.questions && p.questions.length > 0);
+  const data  = hasQs ? saved : READING_DATA;
   const qs = [];
   data.passages.forEach(p => p.questions.forEach(q => qs.push({...q, passageId: p.id})));
   appState.test.flatQuestions = qs;
@@ -89,7 +91,9 @@ function setupListeningTest() {
   appState.test.section = 'listening';
   appState.test.timerSeconds = 30 * 60;
   document.getElementById('timerSectionName').textContent = 'Listening';
-  const data = getActiveTestData('listening') || LISTENING_DATA;
+  const saved = getActiveTestData('listening');
+  const hasQs = saved && saved.sections && saved.sections.some(s => s.questions && s.questions.length > 0);
+  const data  = hasQs ? saved : LISTENING_DATA;
   const qs = [];
   data.sections.forEach(s => s.questions.forEach(q => qs.push({...q, sectionId: s.id})));
   appState.test.flatQuestions = qs;
@@ -164,12 +168,12 @@ function renderQNavigator() {
   }
 
   if (appState.test.section === 'reading') {
-    const readingData = getActiveTestData('reading') || READING_DATA;
+    const passages = appState.test.passages || [];
     let html = '';
     let lastPassageId = null;
     qs.forEach((q, i) => {
       if (q.passageId && q.passageId !== lastPassageId) {
-        const pIdx = readingData.passages.findIndex(p => p.id === q.passageId);
+        const pIdx = passages.findIndex(p => p.id === q.passageId);
         html += `<span class="q-nav-passage-label">Passage ${pIdx + 1}</span>`;
         lastPassageId = q.passageId;
       }
@@ -185,10 +189,10 @@ function renderQNavigator() {
     container.innerHTML = html;
     const currentQ = qs[appState.test.currentQ];
     if (currentQ && currentQ.passageId) {
-      const passageIdx = readingData.passages.findIndex(p => p.id === currentQ.passageId);
-      const passage = readingData.passages[passageIdx];
+      const passageIdx = passages.findIndex(p => p.id === currentQ.passageId);
+      const passage = passages[passageIdx];
       document.getElementById('timerQCount').textContent =
-        `Passage ${passageIdx + 1} of ${readingData.passages.length}: ${passage.title}`;
+        `Passage ${passageIdx + 1} of ${passages.length}: ${passage ? passage.title : ''}`;
     }
   } else if (appState.test.section === 'listening') {
     const listeningData = getActiveTestData('listening') || LISTENING_DATA;
@@ -269,12 +273,12 @@ function navigateQuestion(dir) {
 
   if (q && q.passageId) {
     // Reading: navigate by passage
-    const readingData = getActiveTestData('reading') || READING_DATA;
-    const passageIdx = readingData.passages.findIndex(p => p.id === q.passageId);
+    const passages = appState.test.passages || [];
+    const passageIdx = passages.findIndex(p => p.id === q.passageId);
     const nextIdx = passageIdx + dir;
-    if (nextIdx >= readingData.passages.length) { confirmSubmit(); return; }
+    if (nextIdx >= passages.length) { confirmSubmit(); return; }
     if (nextIdx < 0) return;
-    const nextPassageId = readingData.passages[nextIdx].id;
+    const nextPassageId = passages[nextIdx].id;
     const nextQIdx = qs.findIndex(pq => pq.passageId === nextPassageId);
     if (nextQIdx === -1) return;
     _lastPassageId = null;
@@ -445,9 +449,9 @@ function renderCurrentQuestion() {
 }
 
 function _renderReadingSplit(q, idx, qs) {
-  const readingData = getActiveTestData('reading') || READING_DATA;
-  const passage    = readingData.passages.find(p => p.id === q.passageId);
-  const passageIdx = readingData.passages.findIndex(p => p.id === q.passageId);
+  const passages   = appState.test.passages || [];
+  const passage    = passages.find(p => p.id === q.passageId);
+  const passageIdx = passages.findIndex(p => p.id === q.passageId);
   const passageQs  = qs.filter(pq => pq.passageId === q.passageId);
   const firstIdx   = qs.findIndex(pq => pq.passageId === q.passageId);
 
@@ -455,10 +459,10 @@ function _renderReadingSplit(q, idx, qs) {
   if (_lastPassageId !== q.passageId) {
     document.getElementById('readingPassagePane').innerHTML = `
       <div class="reading-pane-header">
-        <span class="passage-label">Passage ${passageIdx + 1} of ${readingData.passages.length}</span>
-        <h3 class="reading-pane-title">${passage.title}</h3>
+        <span class="passage-label">Passage ${passageIdx + 1} of ${passages.length}</span>
+        <h3 class="reading-pane-title">${passage ? passage.title : ''}</h3>
       </div>
-      <div class="reading-passage-content">${passage.text}</div>`;
+      <div class="reading-passage-content">${passage ? passage.text : ''}</div>`;
     _lastPassageId = q.passageId;
   }
 
@@ -478,7 +482,7 @@ function _renderReadingSplit(q, idx, qs) {
   // Nav buttons: passage-level
   document.getElementById('prevBtn').disabled = passageIdx === 0;
   document.getElementById('nextBtn').textContent =
-    passageIdx === readingData.passages.length - 1 ? 'Submit ✓' : 'Next Passage →';
+    passageIdx === passages.length - 1 ? 'Submit ✓' : 'Next Passage →';
 }
 
 /* Show/update the sticky listening player bar when the section changes.
