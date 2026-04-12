@@ -97,6 +97,7 @@ function setupListeningTest() {
   const qs = [];
   data.sections.forEach(s => s.questions.forEach(q => qs.push({...q, sectionId: s.id})));
   appState.test.flatQuestions = qs;
+  appState.test.sections = data.sections;
   lsStartAudioHighlight();
 }
 
@@ -195,12 +196,12 @@ function renderQNavigator() {
         `Passage ${passageIdx + 1} of ${passages.length}: ${passage ? passage.title : ''}`;
     }
   } else if (appState.test.section === 'listening') {
-    const listeningData = getActiveTestData('listening') || LISTENING_DATA;
+    const sections = appState.test.sections || [];
     let html = '';
     let lastSectionId = null;
     qs.forEach((q, i) => {
       if (q.sectionId && q.sectionId !== lastSectionId) {
-        const sIdx = listeningData.sections.findIndex(s => s.id === q.sectionId);
+        const sIdx = sections.findIndex(s => s.id === q.sectionId);
         html += `<span class="q-nav-passage-label">Section ${sIdx + 1}</span>`;
         lastSectionId = q.sectionId;
       }
@@ -220,10 +221,10 @@ function renderQNavigator() {
     container.innerHTML = html;
     const currentQ = qs[appState.test.currentQ];
     if (currentQ && currentQ.sectionId) {
-      const sIdx = listeningData.sections.findIndex(s => s.id === currentQ.sectionId);
-      const sec  = listeningData.sections[sIdx];
+      const sIdx = sections.findIndex(s => s.id === currentQ.sectionId);
+      const sec  = sections[sIdx];
       document.getElementById('timerQCount').textContent =
-        `Section ${sIdx + 1} of ${listeningData.sections.length}: ${sec.title}`;
+        `Section ${sIdx + 1} of ${sections.length}: ${sec ? sec.title : ''}`;
     }
   } else {
     container.innerHTML = qs.map((q, i) => {
@@ -415,8 +416,8 @@ function renderCurrentQuestion() {
 
   // Listening — persistent player bar + transcript
   if (q.sectionId) {
-    const listeningData = getActiveTestData('listening') || LISTENING_DATA;
-    const section = listeningData.sections.find(s => s.id === q.sectionId);
+    const sections = appState.test.sections || [];
+    const section = sections.find(s => s.id === q.sectionId);
     _updateListeningPlayerBar(section);
     // Auto-seek audio to this question's start timestamp
     if (q.questionStart != null && q.questionStart >= 0) {

@@ -41,6 +41,7 @@ let appState = {
     startTime: null,
     flatQuestions: [],
     passages: [],
+    sections: [],
   },
   miniQuiz: {
     current: 0,
