@@ -1071,25 +1071,66 @@ SUPPORTED TYPES
    count: number of correct answers
    options: array of full option strings
 
-5. matching_headings
-   Each question = one paragraph.
-   answer: the letter of the correct heading  e.g. "C"
-   options: shared array of heading strings (same for all questions in group)
+ALL MATCHING TYPES — rendered as:
+   ① instruction at top  ② options list (A. text, B. text …) as a reference panel
+   ③ each question as a row: [Q#] [question text] [dropdown to select letter]
+   IMPORTANT: always put matching questions in a group with a shared "groupId"
+   so the options panel is shown ONCE at the top, not repeated per question.
+   "options_heading" (optional) — bold title shown above the options list
 
-6. matching_information  (NB — paragraph matching)
-   Each question = one piece of information to locate.
+5. matching_headings
+   Each question = one paragraph to assign a heading.
+   answer: the heading letter  e.g. "iii"
+   options: shared array of heading strings (same for all questions in group)
+   { "type": "matching_headings", "groupId": "mh_g1",
+     "instructions": "Choose the correct heading for paragraphs A–E from the list below.",
+     "options_heading": "List of Headings",
+     "options": ["i. The evolutionary origins of sleep", "ii. How technology disrupts sleep", "iii. The stages of a sleep cycle"],
+     "questions": [
+       { "id": 8, "text": "Paragraph A", "answer": "iii" },
+       { "id": 9, "text": "Paragraph B", "answer": "i"  }
+     ]
+   }
+
+6. matching_information  (paragraph matching)
+   Each question = a statement to locate in a paragraph.
    answer: paragraph letter  e.g. "D"
-   options: ["A","B","C","D","E","F"]  (or full paragraph summaries)
+   options: paragraph letters or summaries  e.g. ["A","B","C","D","E","F"]
+   { "type": "matching_information", "groupId": "mi_g1",
+     "instructions": "Which paragraph contains the following information?",
+     "options": ["A","B","C","D","E","F"],
+     "questions": [
+       { "id": 11, "text": "A comparison between sleep patterns in different age groups.", "answer": "B" },
+       { "id": 12, "text": "A reference to a specific scientific study on sleep deprivation.", "answer": "E" }
+     ]
+   }
 
 7. matching_features
    Each question = one feature to match to a person/category.
-   answer: letter of the matching item  e.g. "B"
-   options: array of people/categories
+   answer: letter of the matching person/category  e.g. "B"
+   options: array of people/categories  (format "A. Name")
+   { "type": "matching_features", "groupId": "mf_g1",
+     "instructions": "Match each finding with the correct scientist.",
+     "options_heading": "Scientists",
+     "options": ["A. Dr Sarah Chen", "B. Professor James Liu", "C. Dr Maria Costa"],
+     "questions": [
+       { "id": 14, "text": "Identified a gene linked to short sleep duration.", "answer": "A" },
+       { "id": 15, "text": "Proposed that sleep serves a waste-removal function.", "answer": "C" }
+     ]
+   }
 
 8. matching_sentence_endings
-   Each question = sentence beginning to complete.
+   Each question = sentence beginning; student selects the correct ending.
    answer: letter of the correct ending  e.g. "E"
-   options: array of sentence endings
+   options: array of sentence endings  (format "A. ending text")
+   { "type": "matching_sentence_endings", "groupId": "mse_g1",
+     "instructions": "Complete each sentence with the correct ending A–F.",
+     "options": ["A. is associated with better performance.", "B. can lead to cardiovascular disease.", "C. reduces vaccine effectiveness."],
+     "questions": [
+       { "id": 17, "text": "Regularly sleeping fewer than six hours per night", "answer": "B" },
+       { "id": 18, "text": "Getting sufficient deep sleep each night", "answer": "A" }
+     ]
+   }
 
 9. sentence_completion
    Each question = one sentence with a blank.
@@ -1333,8 +1374,10 @@ consecutive integers starting from [N]. Include a mix of these types:
 true_false_not_given, matching_headings, sentence_completion, and
 summary_completion. Passage: [paste passage here]"
 
-- For matching_headings: put the shared options array on the GROUP,
-  not on individual questions.
+- For ALL matching types (matching_headings, matching_information, matching_features,
+  matching_sentence_endings): ALWAYS assign a shared "groupId" to all questions in the
+  group so the options list is shown ONCE at the top. Put "options" and "options_heading"
+  on the GROUP object (not on individual questions). Format options as "A. text", "B. text".
 - For completion (inline): use the "content" array with alternating
   text/blank tokens. List answer keys separately in "questions".
 - For table_completion: every blank cell needs its own question entry

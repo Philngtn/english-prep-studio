@@ -399,33 +399,42 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
   const optionsHeading = (peers[0] && peers[0].optionsHeading) || '';
   const options        = (peers[0] && peers[0].options)        || [];
 
-  // Reference list: "A. description", "B. description" …
+  // Instruction — supports newlines rendered as line breaks
+  const instructionHtml = instruction
+    ? `<div class="ls-matching-instruction">${lsEsc(instruction).replace(/\n/g,'<br>')}</div>` : '';
+
+  // Options reference panel: bold letter + description, no period
   const optionsHtml = options.length ? `
     <div class="ls-matching-options">
       ${optionsHeading ? `<div class="ls-matching-options-heading">${lsEsc(optionsHeading)}</div>` : ''}
       ${options.map(opt => {
-        const m = String(opt).match(/^([A-Z])[.\s]+(.+)$/);
+        const m = String(opt).match(/^([A-Za-z]+)[.\s]+(.+)$/);
         return m
-          ? `<div class="ls-matching-option"><strong>${lsEsc(m[1])}</strong> ${lsEsc(m[2])}</div>`
+          ? `<div class="ls-matching-option"><span class="ls-match-letter">${lsEsc(m[1])}</span>${lsEsc(m[2])}</div>`
           : `<div class="ls-matching-option">${lsEsc(opt)}</div>`;
       }).join('')}
     </div>` : '';
 
-  // Question rows: [Q#] [year/label] [dropdown]
-  const questionsHtml = peers.map(p => {
-    const saved = appState.test.answers[p.id] || '';
-    const ddOpts = [`<option value="">–</option>`,
+  // Dropdown options: letter only (A, B, C …)
+  const buildDd = (saved) => {
+    const ddOpts = [`<option value="">Select…</option>`,
       ...options.map(opt => {
-        const letter = String(opt).match(/^([A-Z])/)?.[1] || '';
-        const sel = letter && letter === saved.toUpperCase() ? ' selected' : '';
+        const letter = String(opt).match(/^([A-Za-z]+)/)?.[1] || '';
+        const sel    = letter && letter.toUpperCase() === saved.toUpperCase() ? ' selected' : '';
         return `<option value="${lsEsc(letter)}"${sel}>${lsEsc(letter)}</option>`;
       })
     ].join('');
+    return ddOpts;
+  };
+
+  // Question rows: [Q#] [year/label] [dropdown]
+  const questionsHtml = peers.map(p => {
+    const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-matching-row">
-      <span class="ls-token-blank-num">${p.qNum}</span>
-      <span class="ls-matching-row-text">${lsEsc(p.text || '')}</span>
+      <span class="ls-match-qnum">${p.qNum}</span>
+      <span class="ls-match-label">${lsEsc(p.text || '')}</span>
       <select class="ls-matching-select" data-qid="${p.id}"
-        onchange="saveAnswer('${p.id}',this.value)">${ddOpts}</select>
+        onchange="saveAnswer('${p.id}',this.value)">${buildDd(saved)}</select>
       ${lsJumpBtn(p.questionStart)}
     </div>`;
   }).join('');
@@ -433,8 +442,8 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
   return `<div class="question-block ls-matching-block" data-group="${lsEsc(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsJumpBtn(peers[0].questionStart)}
-    ${lsInstruction(instruction)}
-    ${lsAnswerRule(answerRule)}
+    ${instructionHtml}
+    ${answerRule ? `<div class="ls-answer-rule">Write ${lsEsc(answerRule)}</div>` : ''}
     ${optionsHtml}
     <div class="ls-matching-questions">${questionsHtml}</div>
   </div>`;

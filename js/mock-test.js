@@ -265,6 +265,18 @@ function jumpToQuestion(idx) {
   }
   const targetQ = qs[idx];
   const currentQ = qs[appState.test.currentQ];
+
+  // Listening: if target is in the same section already rendered, just scroll
+  if (targetQ && targetQ.sectionId && currentQ && currentQ.sectionId === targetQ.sectionId) {
+    appState.test.currentQ = idx;
+    renderQNavigator();
+    setTimeout(() => {
+      const el = document.getElementById('ls-q-' + targetQ.id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+    return;
+  }
+
   if (targetQ && targetQ.passageId && (!currentQ || currentQ.passageId !== targetQ.passageId)) {
     _lastPassageId = null;
   }
@@ -283,7 +295,17 @@ function navigateQuestion(dir) {
   const qs = appState.test.flatQuestions;
   const q = qs[appState.test.currentQ];
 
-  if (q && q.passageId) {
+  if (q && q.sectionId) {
+    // Listening: navigate by section (Part 1 → 2 → 3 → 4)
+    const sections = appState.test.sections || [];
+    const sectionIdx = sections.findIndex(s => s.id === q.sectionId);
+    const nextSectionIdx = sectionIdx + dir;
+    if (nextSectionIdx >= sections.length) { confirmSubmit(); return; }
+    if (nextSectionIdx < 0) return;
+    const nextSection = sections[nextSectionIdx];
+    const nextQIdx = qs.findIndex(fq => fq.sectionId === nextSection.id);
+    if (nextQIdx !== -1) appState.test.currentQ = nextQIdx;
+  } else if (q && q.passageId) {
     // Reading: navigate by passage
     const passages = appState.test.passages || [];
     const passageIdx = passages.findIndex(p => p.id === q.passageId);
@@ -432,35 +454,64 @@ function renderCurrentQuestion() {
     return;
   }
 
-  // Listening — persistent player bar + transcript
+  // Listening — show ALL questions in the section at once
   if (q.sectionId) {
-    const sections = appState.test.sections || [];
-    const section = sections.find(s => s.id === q.sectionId);
-    _updateListeningPlayerBar(section);
-    // Auto-seek audio to this question's start timestamp
-    if (q.questionStart != null && q.questionStart >= 0) {
-      const audioEl = document.querySelector('#lpbPlayer audio');
-      if (audioEl) {
-        const doSeek = () => { audioEl.currentTime = q.questionStart; };
-        if (audioEl.readyState >= 1) doSeek();
-        else audioEl.addEventListener('loadedmetadata', doSeek, { once: true });
+    const sections    = appState.test.sections || [];
+    const section     = sections.find(s => s.id === q.sectionId);
+    const sectionIdx  = sections.findIndex(s => s.id === q.sectionId);
+    const sectionChanged = _lastSectionId !== (section && section.id);
+    _updateListeningPlayerBar(section);  // updates _lastSectionId + _transcriptExpanded
+
+    if (sectionChanged) {
+      const sectionQs = qs.filter(fq => fq.sectionId === q.sectionId);
+      const firstQIdx = qs.findIndex(fq => fq.sectionId === q.sectionId);
+
+      // Seek audio to start of first question in section
+      const firstStart = sectionQs[0] && sectionQs[0].questionStart;
+      if (firstStart != null && firstStart >= 0) {
+        const audioEl = document.querySelector('#lpbPlayer audio');
+        if (audioEl) {
+          const doSeek = () => { audioEl.currentTime = firstStart; };
+          if (audioEl.readyState >= 1) doSeek();
+          else audioEl.addEventListener('loadedmetadata', doSeek, { once: true });
+        }
       }
+
+      // Transcript (collapsed by default on section change)
+      let transcriptHTML = '';
+      if (section && section.transcript && !appState.timerCountdown) {
+        const expanded = _transcriptExpanded;
+        transcriptHTML = `
+          <div class="listening-transcript">
+            <div class="transcript-toggle" onclick="toggleTranscript()">
+              <h4>&#127925; ${section.title}</h4>
+              <span class="transcript-arrow">${expanded ? '&#9650; Hide transcript' : '&#9660; Show transcript'}</span>
+            </div>
+            <div class="transcript-body"${expanded ? '' : ' style="display:none"'}>
+              <p>${section.transcript}</p>
+            </div>
+          </div>`;
+      }
+
+      // Render every question in this section, each wrapped with a scroll anchor
+      const questionsHtml = sectionQs.map((sq, i) =>
+        `<div id="ls-q-${sq.id}">${renderQuestionHTML(sq, firstQIdx + i)}</div>`
+      ).join('');
+
+      body.innerHTML = transcriptHTML + questionsHtml;
     }
-    let transcriptHTML = '';
-    if (section && section.transcript && !appState.timerCountdown) {
-      const expanded = _transcriptExpanded;
-      transcriptHTML = `
-        <div class="listening-transcript">
-          <div class="transcript-toggle" onclick="toggleTranscript()">
-            <h4>&#127925; ${section.title}</h4>
-            <span class="transcript-arrow">${expanded ? '&#9650; Hide transcript' : '&#9660; Show transcript'}</span>
-          </div>
-          <div class="transcript-body"${expanded ? '' : ' style="display:none"'}>
-            <p>${section.transcript}</p>
-          </div>
-        </div>`;
-    }
-    body.innerHTML = transcriptHTML + renderQuestionHTML(q, idx);
+
+    // Override nav buttons with section-level labels
+    document.getElementById('prevBtn').disabled = sectionIdx === 0;
+    document.getElementById('nextBtn').textContent =
+      sectionIdx === sections.length - 1 ? 'Submit ✓' : 'Next Part →';
+    if (flagBtn) flagBtn.classList.toggle('active', appState.test.flags.has(q.id));
+
+    // Scroll to the specific question anchor
+    setTimeout(() => {
+      const el = document.getElementById('ls-q-' + q.id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
     return;
   }
 
@@ -637,35 +688,11 @@ function _rdRenderQuestion(q, idx) {
   } else if (q.type === 'matching' || q.type === 'matching_headings' ||
              q.type === 'matching_info' || q.type === 'matching_information' ||
              q.type === 'matching_features' || q.type === 'matching_sentence_endings') {
-    const opts = q.options || [];
-    /* Option bank: shown when options contain more than bare letters */
-    const hasFullText = opts.some(o => o.length > 3);
-    const optBankHtml = opts.length ? `
-      <div class="rd-option-bank">
-        <div class="rd-option-bank-header">Options</div>
-        <ul class="rd-option-bank-list">
-          ${opts.map((opt, i) => {
-            const letter = String.fromCharCode(65 + i);
-            const raw    = opt.replace(/^[A-Z]\.\s*/i, '');  // strip existing letter prefix
-            const display = raw.length <= 2 ? `Paragraph ${raw}` : raw;
-            return `<li class="rd-option-bank-item">
-              <span class="rd-opt-letter">${letter}.</span>
-              <span class="rd-opt-text">${display}</span>
-            </li>`;
-          }).join('')}
-        </ul>
-      </div>` : '';
-    const dropdownOpts = opts.map((opt, i) => {
-      const letter  = String.fromCharCode(65 + i);
-      const raw     = opt.replace(/^[A-Z]\.\s*/i, '');  // strip existing letter prefix
-      const display = raw.length <= 2 ? `Paragraph ${raw}` : raw;
-      return `<option value="${letter}" ${saved===letter?'selected':''}>${letter}. ${display}</option>`;
-    }).join('');
-    body = `${optBankHtml}
-    <select class="rd-matching-sel" data-qid="${q.id}" aria-label="Question ${qLabel} answer">
-      <option value="">— Select —</option>
-      ${dropdownOpts}
-    </select>`;
+    /* Single ungrouped matching question — reuse the same layout as the grouped renderer */
+    body = _rdRenderMatchingGroup([q], `Question ${qLabel}`);
+    // _rdRenderMatchingGroup returns a full question-block div; skip the outer wrapper below
+    if (q.instructions) body = `<div class="rd-instructions">${q.instructions}</div>` + body;
+    return body;
 
   } else if (q.type === 'completion' && Array.isArray(q.content)) {
     /* Inline blank completion: content is an array of {type:"text"|"blank", value?, id?} */
@@ -711,15 +738,70 @@ function _rdRenderGroupBlock(peers) {
   const instructions = (peers.find(p => p.instructions) || {}).instructions || '';
   const type = peers[0].type;
 
+  const isMatchingType = ['matching', 'matching_headings', 'matching_info', 'matching_information',
+                          'matching_features', 'matching_sentence_endings'].includes(type);
   let inner = '';
   if (type === 'diagram_labeling' || type === 'map_labeling') {
     inner = _rdRenderDiagram(peers, rangeLabel);
   } else if (type === 'table_completion') {
     inner = _rdRenderTable(peers, rangeLabel);
+  } else if (isMatchingType) {
+    inner = _rdRenderMatchingGroup(peers, rangeLabel);
   } else {
     inner = _rdRenderFormList(peers, rangeLabel);
   }
   return (instructions ? `<div class="rd-instructions">${instructions}</div>` : '') + inner;
+}
+
+/* Render grouped matching questions: options list at top + question rows with dropdowns */
+function _rdRenderMatchingGroup(peers, rangeLabel) {
+  const opts           = (peers[0] && peers[0].options) || [];
+  const answerRule     = peers[0].answerRule
+    ? `<div class="rd-answer-rule">${_rdEsc(peers[0].answerRule)}</div>` : '';
+  const optionsHeading = (peers[0] && peers[0].optionsHeading) || '';
+  const instruction    = (peers[0] && peers[0].instruction)    || '';
+
+  const instructionHtml = instruction
+    ? `<div class="ls-matching-instruction">${_rdEsc(instruction).replace(/\n/g,'<br>')}</div>` : '';
+
+  // Options reference list (shown once at top)
+  const optionsHtml = opts.length ? `
+    <div class="ls-matching-options">
+      ${optionsHeading ? `<div class="ls-matching-options-heading">${_rdEsc(optionsHeading)}</div>` : ''}
+      ${opts.map(opt => {
+        const m = String(opt).match(/^([A-Za-z]+)[.\s]+(.+)$/);
+        return m
+          ? `<div class="ls-matching-option"><span class="ls-match-letter">${_rdEsc(m[1])}</span>${_rdEsc(m[2])}</div>`
+          : `<div class="ls-matching-option">${_rdEsc(opt)}</div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Dropdown builder
+  const buildDd = (saved) => [`<option value="">Select…</option>`,
+    ...opts.map(opt => {
+      const letter = String(opt).match(/^([A-Za-z]+)/)?.[1] || '';
+      const sel    = letter && letter.toUpperCase() === saved.toUpperCase() ? ' selected' : '';
+      return `<option value="${_rdEsc(letter)}"${sel}>${_rdEsc(letter)}</option>`;
+    })
+  ].join('');
+
+  // Question rows: [Q#] [text] [dropdown]
+  const questionsHtml = peers.map(p => {
+    const saved = appState.test.answers[p.id] || '';
+    return `<div class="ls-matching-row">
+      <span class="ls-match-qnum">${_rdEsc(String(p.qNum || p.id))}</span>
+      <span class="ls-match-label">${_rdEsc(p.text || '')}</span>
+      <select class="ls-matching-select" data-qid="${_rdEsc(String(p.id))}">${buildDd(saved)}</select>
+    </div>`;
+  }).join('');
+
+  return `<div class="question-block ls-matching-block">
+    <div class="question-number">${rangeLabel}</div>
+    ${instructionHtml}
+    ${answerRule}
+    ${optionsHtml}
+    <div class="ls-matching-questions">${questionsHtml}</div>
+  </div>`;
 }
 
 function _rdRenderDiagram(peers, rangeLabel) {
