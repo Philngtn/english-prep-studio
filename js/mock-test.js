@@ -1,7 +1,8 @@
 'use strict';
 
 let _lastPassageId    = null;
-let _lastSectionId    = null;
+let _lastSectionId    = null;   // which section's questions are currently displayed
+let _audioSectionId   = null;   // which section's audio is loaded in the player
 let _transcriptExpanded = false;
 let _audioFinishedSections = new Set();   // section ids whose audio has reached 'ended'
 let _scrubLockActive  = false;            // prevents recursive seeking when we reset currentTime
@@ -27,6 +28,7 @@ function startTestSection(section) {
 
   switchTab('mock-test');
   _audioFinishedSections = new Set();
+  _audioSectionId = null;
   appState.test = {
     active: true,
     section,
@@ -476,36 +478,22 @@ function renderCurrentQuestion() {
     const section     = sections.find(s => s.id === q.sectionId);
     const sectionIdx  = sections.findIndex(s => s.id === q.sectionId);
     const sectionChanged = _lastSectionId !== (section && section.id);
-    _updateListeningPlayerBar(section);  // updates _lastSectionId + _transcriptExpanded
+
+    // Compute firstStart for practice-mode seek (countdown mode always starts at 0)
+    const sectionQsForAudio = qs.filter(fq => fq.sectionId === q.sectionId);
+    const firstStart = (!appState.timerCountdown && sectionQsForAudio[0])
+      ? (sectionQsForAudio[0].questionStart ?? null) : null;
+
+    // Update the player bar. In countdown mode this guards the audio unlock check;
+    // it may return without changing audio if a prior section hasn't finished yet.
+    _updateListeningPlayerBar(section, firstStart);
 
     if (sectionChanged) {
-      const sectionQs = qs.filter(fq => fq.sectionId === q.sectionId);
+      _lastSectionId = section.id;   // update question-display cache
+      const sectionQs = sectionQsForAudio;
       const firstQIdx = qs.findIndex(fq => fq.sectionId === q.sectionId);
 
-      // In countdown mode: always start from 0 and track when section audio ends.
-      // In practice mode: seek to the first question's audio timestamp.
-      if (!appState.timerCountdown) {
-        const firstStart = sectionQs[0] && sectionQs[0].questionStart;
-        if (firstStart != null && firstStart >= 0) {
-          const audioEl = document.querySelector('#lpbPlayer audio');
-          if (audioEl) {
-            const doSeek = () => { audioEl.currentTime = firstStart; };
-            if (audioEl.readyState >= 1) doSeek();
-            else audioEl.addEventListener('loadedmetadata', doSeek, { once: true });
-          }
-        }
-      } else {
-        // Countdown mode: mark section done when its audio finishes
-        const sectionId = section && section.id;
-        const audioEl = document.querySelector('#lpbPlayer audio');
-        if (audioEl && sectionId) {
-          audioEl.addEventListener('ended', () => {
-            _audioFinishedSections.add(sectionId);
-          }, { once: true });
-        }
-      }
-
-      // Transcript (collapsed by default on section change)
+      // Transcript (collapsed by default on section change, hidden in countdown)
       let transcriptHTML = '';
       if (section && section.transcript && !appState.timerCountdown) {
         const expanded = _transcriptExpanded;
@@ -593,7 +581,7 @@ function toggleTranscript() {
   if (arrow) arrow.innerHTML    = _transcriptExpanded ? '&#9650; Hide transcript' : '&#9660; Show transcript';
 }
 
-function _updateListeningPlayerBar(section) {
+function _updateListeningPlayerBar(section, firstStart) {
   const bar   = document.getElementById('listeningPlayerBar');
   const label = document.getElementById('lpbSectionLabel');
   const player = document.getElementById('lpbPlayer');
@@ -602,30 +590,54 @@ function _updateListeningPlayerBar(section) {
   if (!section) {
     bar.style.display = 'none';
     player.innerHTML = '';
-    _lastSectionId = null;
+    _audioSectionId = null;
     lsStopAudioHighlight();
     return;
   }
 
   bar.style.display = 'block';
   label.textContent = '🎧 ' + section.title;
-  // Show lock badge next to label when timer is counting down
   bar.classList.toggle('lpb-pause-locked', !!appState.timerCountdown);
 
   // Only rebuild the audio element when the section actually changes
-  if (_lastSectionId !== section.id) {
-    player.innerHTML = _buildAudioPlayer(section.audioUrl);
-    _lastSectionId = section.id;
-    _transcriptExpanded = false;  // collapse transcript on new section
+  if (_audioSectionId === section.id) return;
 
-    // In countdown mode: auto-play, prevent pausing, and lock the scrubber
-    const audioEl = player.querySelector('audio');
-    if (audioEl && appState.timerCountdown) {
-      audioEl.play().catch(() => {});
-      audioEl.addEventListener('pause', _lsPauseLockHandler);
-      _lsAttachScrubLock(audioEl);
-    }
+  // Countdown mode: only start a section's audio once all prior sections have finished
+  if (appState.timerCountdown && !_isSectionAudioUnlocked(section.id)) {
+    // Student navigated to view this section's questions early — keep current audio running
+    return;
   }
+
+  player.innerHTML = _buildAudioPlayer(section.audioUrl);
+  _audioSectionId = section.id;
+  _transcriptExpanded = false;
+
+  const audioEl = player.querySelector('audio');
+  if (!audioEl) return;
+
+  if (appState.timerCountdown) {
+    // Countdown: auto-play from 0, lock pause + scrubber, track when section ends
+    audioEl.play().catch(() => {});
+    audioEl.addEventListener('pause', _lsPauseLockHandler);
+    _lsAttachScrubLock(audioEl);
+    audioEl.addEventListener('ended', () => {
+      _audioFinishedSections.add(section.id);
+    }, { once: true });
+  } else if (firstStart != null && firstStart >= 0) {
+    // Practice mode: seek to first question's timestamp
+    const doSeek = () => { audioEl.currentTime = firstStart; };
+    if (audioEl.readyState >= 1) doSeek();
+    else audioEl.addEventListener('loadedmetadata', doSeek, { once: true });
+  }
+}
+
+/* Returns true if section sectionId is allowed to start playing (countdown mode).
+   Section 0 is always unlocked; section N requires all prior sections to have ended. */
+function _isSectionAudioUnlocked(sectionId) {
+  const sections = (appState.test && appState.test.sections) || [];
+  const idx = sections.findIndex(s => s.id === sectionId);
+  if (idx <= 0) return true;
+  return sections.slice(0, idx).every(s => _audioFinishedSections.has(s.id));
 }
 
 /* Prevents the student from pausing audio during a timed test.
@@ -1300,6 +1312,7 @@ function backToSelector() {
     appState.test.active = false;
   }
   _lastPassageId = null;
+  _lastSectionId = null;
   _updateListeningPlayerBar(null);
   stopTimer();
   document.getElementById('testInterface').style.display    = 'none';
