@@ -4,6 +4,7 @@ let _lastPassageId    = null;
 let _lastSectionId    = null;
 let _transcriptExpanded = false;
 let _audioFinishedSections = new Set();   // section ids whose audio has reached 'ended'
+let _scrubLockActive  = false;            // prevents recursive seeking when we reset currentTime
 
 /* ============================================================
    ===== TEST SECTION START =====
@@ -617,21 +618,41 @@ function _updateListeningPlayerBar(section) {
     _lastSectionId = section.id;
     _transcriptExpanded = false;  // collapse transcript on new section
 
-    // In countdown mode: auto-play and prevent pausing
+    // In countdown mode: auto-play, prevent pausing, and lock the scrubber
     const audioEl = player.querySelector('audio');
     if (audioEl && appState.timerCountdown) {
-      audioEl.play().catch(() => {});  // trigger autoplay (may be blocked first interaction)
+      audioEl.play().catch(() => {});
       audioEl.addEventListener('pause', _lsPauseLockHandler);
+      _lsAttachScrubLock(audioEl);
     }
   }
 }
 
-/* Prevents the student from pausing audio during a timed test */
+/* Prevents the student from pausing audio during a timed test.
+   Does NOT restart when the audio ends naturally (this.ended check). */
 function _lsPauseLockHandler() {
   if (appState.timerCountdown && appState.test && appState.test.active) {
+    if (this.ended) return;   // natural end — let it stop, do not loop
     this.play();
     showToast('Pause is disabled during a timed test.');
   }
+}
+
+/* Prevents the student from scrubbing the timeline during a timed test.
+   Tracks the last safe position via timeupdate and snaps back on seeking. */
+function _lsAttachScrubLock(audioEl) {
+  audioEl.addEventListener('timeupdate', function () {
+    if (!this.seeking) this._safeTime = this.currentTime;
+  });
+  audioEl.addEventListener('seeking', function () {
+    if (_scrubLockActive) return;
+    if (appState.timerCountdown && appState.test && appState.test.active && !this.ended) {
+      _scrubLockActive = true;
+      this.currentTime = this._safeTime || 0;
+      _scrubLockActive = false;
+      showToast('Scrubbing is disabled during a timed test.');
+    }
+  });
 }
 
 function seekListeningAudio(seconds) {
