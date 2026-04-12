@@ -581,12 +581,29 @@ function _updateListeningPlayerBar(section) {
 
   bar.style.display = 'block';
   label.textContent = '🎧 ' + section.title;
+  // Show lock badge next to label when timer is counting down
+  bar.classList.toggle('lpb-pause-locked', !!appState.timerCountdown);
 
   // Only rebuild the audio element when the section actually changes
   if (_lastSectionId !== section.id) {
     player.innerHTML = _buildAudioPlayer(section.audioUrl);
     _lastSectionId = section.id;
     _transcriptExpanded = false;  // collapse transcript on new section
+
+    // In countdown mode: auto-play and prevent pausing
+    const audioEl = player.querySelector('audio');
+    if (audioEl && appState.timerCountdown) {
+      audioEl.play().catch(() => {});  // trigger autoplay (may be blocked first interaction)
+      audioEl.addEventListener('pause', _lsPauseLockHandler);
+    }
+  }
+}
+
+/* Prevents the student from pausing audio during a timed test */
+function _lsPauseLockHandler() {
+  if (appState.timerCountdown && appState.test && appState.test.active) {
+    this.play();
+    showToast('Pause is disabled during a timed test.');
   }
 }
 
@@ -606,7 +623,7 @@ function _buildAudioPlayer(url) {
       src="https://drive.google.com/file/d/${gdMatch[1]}/preview"
       allow="autoplay" allowfullscreen></iframe>`;
   }
-  return `<audio class="listening-audio-player" src="${url}" controls></audio>`;
+  return `<audio class="listening-audio-player" src="${url}" controls autoplay></audio>`;
 }
 
 /* ============================================================

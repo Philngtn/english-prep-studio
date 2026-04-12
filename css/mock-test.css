@@ -298,6 +298,15 @@
 .lpb-player audio {
   width: 100%; height: 40px; border-radius: 8px;
 }
+/* Lock badge shown next to section label when pause is disabled */
+.lpb-pause-locked .lpb-section-label::after {
+  content: '🔒 No pause';
+  margin-left: 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fbbf24;
+  letter-spacing: 0.02em;
+}
 .ls-jump-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 1.5rem; height: 1.5rem; border-radius: 50%;
