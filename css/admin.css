@@ -728,3 +728,116 @@
 .ls-json-pane-actions {
   display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;
 }
+
+/* ============================================================
+   Test Editor — Two-panel layout
+   ============================================================ */
+.admin-test-layout {
+  display: flex; gap: 0; min-height: 600px; align-items: flex-start;
+}
+.admin-pkg-sidebar {
+  width: 240px; min-width: 160px; flex-shrink: 0;
+  background: var(--sidebar-bg, #f8f9fa);
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  margin-right: 1.25rem; padding: 0.75rem 0.5rem;
+  position: sticky; top: 60px;
+  max-height: calc(100vh - 80px); overflow-y: auto;
+}
+.admin-editor-area { flex: 1; min-width: 0; }
+
+/* Sidebar — package rows */
+.admin-sidebar-pkg { margin-bottom: 0.15rem; }
+.admin-sidebar-pkg-row {
+  display: flex; align-items: center; gap: 0.25rem;
+  padding: 0.3rem 0.4rem; border-radius: 6px;
+  cursor: pointer; font-size: 0.84rem; font-weight: 600;
+  user-select: none;
+}
+.admin-sidebar-pkg-row:hover,
+.admin-sidebar-pkg-row.active { background: #fce7f3; }
+.admin-sidebar-pkg-row.active { color: var(--primary); }
+.admin-sidebar-expand-arrow {
+  font-size: 0.58rem; transition: transform 0.18s;
+  color: var(--text-muted); flex-shrink: 0;
+}
+.admin-sidebar-expand-arrow.open { transform: rotate(90deg); }
+
+/* Sidebar — name labels */
+.pkg-name-label, .test-name-label {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pkg-name-label:hover  { color: var(--primary); cursor: pointer; }
+.test-name-label:hover { color: var(--primary); cursor: pointer; }
+
+/* Sidebar — test rows */
+.admin-sidebar-test-list { padding-left: 1rem; }
+.admin-sidebar-test-row {
+  display: flex; align-items: center; gap: 0.25rem;
+  padding: 0.22rem 0.4rem; border-radius: 6px;
+  font-size: 0.81rem; cursor: pointer;
+}
+.admin-sidebar-test-row:hover { background: #fdf4ff; }
+.admin-sidebar-test-row.active {
+  background: #fce7f3; color: var(--primary); font-weight: 600;
+}
+
+/* Sidebar — hover-reveal action buttons */
+.admin-sidebar-delete-btn {
+  visibility: hidden; width: 18px; height: 18px; padding: 0; flex-shrink: 0;
+  border: 1px solid #f87171; border-radius: 50%;
+  background: #fff1f2; color: #ef4444;
+  font-size: 0.62rem; cursor: pointer; line-height: 1;
+}
+.admin-sidebar-pkg-row:hover  .admin-sidebar-delete-btn,
+.admin-sidebar-test-row:hover .admin-sidebar-delete-btn { visibility: visible; }
+.admin-sidebar-delete-btn:hover { background: #ef4444; color: #fff; }
+
+.admin-sidebar-add-btn {
+  visibility: hidden; font-size: 0.7rem !important;
+  padding: 0.08rem 0.3rem !important; flex-shrink: 0;
+}
+.admin-sidebar-pkg-row:hover .admin-sidebar-add-btn { visibility: visible; }
+
+/* Sidebar — new package dashed button */
+.admin-sidebar-new-pkg-btn {
+  display: block; width: 100%; margin-top: 0.6rem;
+  text-align: center; font-size: 0.78rem !important;
+  border-style: dashed !important;
+}
+
+/* Sidebar — inline rename */
+.ls-rename-input {
+  flex: 1; font-size: 0.81rem; padding: 0.18rem 0.35rem;
+  border: 1.5px solid var(--primary); border-radius: 5px; min-width: 0;
+  background: var(--card-bg); color: var(--text); font-family: inherit;
+}
+.ls-rename-confirm-btn {
+  flex-shrink: 0; padding: 0.1rem 0.3rem; border-radius: 4px;
+  background: #d1fae5; border: 1px solid #6ee7b7; color: #065f46;
+  font-size: 0.72rem; cursor: pointer;
+}
+.ls-rename-cancel-btn {
+  flex-shrink: 0; padding: 0.1rem 0.3rem; border-radius: 4px;
+  background: #fff1f2; border: 1px solid #fca5a5; color: #b91c1c;
+  font-size: 0.72rem; cursor: pointer;
+}
+
+/* Editor topbar (Save + Import buttons) */
+.admin-editor-topbar {
+  display: flex; justify-content: flex-end; gap: 0.5rem;
+  margin-bottom: 0.75rem; flex-wrap: wrap;
+}
+
+/* Dirty dot on section tabs */
+.admin-sec-tab.dirty { color: #d97706; }
+.admin-sec-tab.dirty.active { border-bottom-color: #d97706; background: #fef3c7; }
+.admin-dirty-dot { font-size: 0.58rem; vertical-align: super; color: #d97706; }
+
+/* Responsive: stack on small screens */
+@media (max-width: 768px) {
+  .admin-test-layout { flex-direction: column; }
+  .admin-pkg-sidebar {
+    width: 100%; margin-right: 0; margin-bottom: 1rem;
+    position: static; max-height: none;
+  }
+}

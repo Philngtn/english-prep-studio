@@ -170,8 +170,10 @@ let _aMiniQuizTestIdx  = null;   // null = test list view; number = question edi
 let _mqAllTests        = [];     // working copy of quiz tests while editing
 let _aShowCreatePkg        = false;
 let _aShowCreateSec        = false;
-let _aShowCreateTestPkg    = false;
-let _aShowCreateTest       = false;
+let _aExpandedPkgs         = new Set();
+let _aRenamingPkg          = null;
+let _aRenamingTest         = null;
+let _aDirtySection         = null;
 let _aListeningPart    = 0;
 let _adminSnapshot         = null;   // baseline form state after each render / save
 let _adminDirty            = false;  // true when form differs from baseline
@@ -242,15 +244,16 @@ function _adminSetDirty() {
   if (_adminRendering)      return;  // suppress during render cycle
   if (_adminSnapshot === null) return;  // baseline not yet established
   _adminDirty = _serializeAdminForm() !== _adminSnapshot;
-  // Trigger auto-save debounce if dirty
-  if (_adminDirty) _adminAutoSaveTrigger();
+  if (_adminDirty) { _aDirtySection = _aSec; _adminAutoSaveTrigger(); }
 }
-function _adminClearDirty() { _adminDirty = false; }
+function _adminClearDirty() { _adminDirty = false; _aDirtySection = null; _updateDirtyTabBadge(); }
 // After a save that does NOT re-render, reset baseline to the current (saved)
 // form state so subsequent navigation correctly shows no unsaved changes.
 function _adminResetBaseline() {
   _adminSnapshot = _serializeAdminForm();
   _adminDirty    = false;
+  _aDirtySection = null;
+  _updateDirtyTabBadge();
 }
 // Auto-save debounce: wait 2.5 seconds of inactivity, then save the current section
 function _adminAutoSaveTrigger() {
@@ -347,14 +350,9 @@ function _updateFloatSave() {
   if (!_adminAuth || _adminMode === 'students') { wrap.style.display = 'none'; return; }
   let fn = '', label = '';
   if (_adminMode === 'test') {
-    const map = {
-      listening: ['adminSaveListening()', '&#128190; Save Listening'],
-      reading:   ['adminSaveReading()',   '&#128190; Save Reading'],
-      writing:   ['adminSaveWriting()',   '&#128190; Save Writing'],
-      speaking:  ['adminSaveSpeaking()',  '&#128190; Save Speaking'],
-    };
-    const entry = map[_aSec];
-    if (entry) { fn = entry[0]; label = entry[1]; }
+    const secLabel = _aSec.charAt(0).toUpperCase() + _aSec.slice(1);
+    fn    = 'adminSaveCurrent()';
+    label = `&#128190; Save ${secLabel}`;
   } else if (_adminMode === 'practice') {
     const inQuestionEditor = _aPracticeSec === 'mini-quiz' && _aMiniQuizTestIdx !== null;
     const map = {
@@ -392,144 +390,352 @@ function _syncPracticePackage() {
   _aMiniQuizTestIdx = null;
 }
 function adminSetMode(mode)       { _adminGuard(() => { _adminMode = mode; _aStudentId = null; if (mode === 'practice') _syncPracticePackage(); renderAdmin(); }); }
-function adminSetPkg(val)         { _adminGuard(() => { _aPkg = val; _aTest = Object.keys(TEST_PACKAGES[val].tests)[0]; _aListeningPart = 0; renderAdmin(); }); }
-function adminSetTest(val)        { _adminGuard(() => { _aTest = val; _aListeningPart = 0; renderAdmin(); }); }
 function adminSetSec(s)           { _adminGuard(() => { _aSec = s; if (s === 'listening') _aListeningPart = 0; renderAdmin(); }); }
 function adminSetPracticePkg(id)  { _adminGuard(() => { _aPracticePackage = id; _aMiniQuizTestIdx = null; renderAdmin(); }); }
 function adminSetPracticeSec(val) { _adminGuard(() => { _aPracticeSec = val; _aMiniQuizTestIdx = null; renderAdmin(); }); }
 
-/* ── Save package / test display names ───────────────────── */
-function adminSaveNames() {
-  const pkgName  = _val('admin-pkg-name').trim();
-  const testName = _val('admin-test-name').trim();
-  if (!pkgName && !testName) { showToast('No changes.'); return; }
-  const store = _getAdminStore();
-  if (!store[_aPkg]) store[_aPkg] = {};
-  if (pkgName) store[_aPkg]._name = pkgName;
-  if (testName) {
-    if (!store[_aPkg][_aTest]) store[_aPkg][_aTest] = {};
-    store[_aPkg][_aTest]._name = testName;
-  }
-  _lsSave(ADMIN_DATA_KEY, store);
-  if (pkgName)  TEST_PACKAGES[_aPkg].name = pkgName;
-  if (testName) TEST_PACKAGES[_aPkg].tests[_aTest].name = testName;
-  showToast('Names saved.');
-  _adminClearDirty();
-  renderAdmin();
+/* ── Admin HTML modal (supports form inputs in body) ─────── */
+function _showAdminInputModal(title, bodyHTML, onConfirm) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHTML;
+  document.getElementById('modalConfirmBtn').onclick = () => { closeModal(); onConfirm(); };
+  document.getElementById('modalOverlay').style.display = 'flex';
 }
 
-/* ── Delete test package / individual test ────────────────── */
-function adminDeleteTestPkg() {
-  const pkg = TEST_PACKAGES[_aPkg];
-  if (!pkg) return;
-  if (!confirm(`Delete entire package "${pkg.name}"?\nAll tests inside will also be removed. This cannot be undone.`)) return;
+/* ── Refresh test picker in mock-test tab after CRUD ops ─── */
+function _refreshTestPickerInMockTest() {
+  if (typeof _populateTestPicker === 'function') _populateTestPicker();
+}
 
+/* ── Section tabs HTML with dirty dot badge ──────────────── */
+function _buildSecTabsInnerHTML() {
+  return ['listening','reading','writing','speaking'].map(s => {
+    const dirty = (_aDirtySection === s);
+    const label = s.charAt(0).toUpperCase() + s.slice(1);
+    return `<button class="admin-sec-tab${_aSec===s?' active':''}${dirty?' dirty':''}"
+      onclick="adminSetSec('${s}')">${label}${dirty ? ' <span class="admin-dirty-dot">&#9679;</span>' : ''}</button>`;
+  }).join('');
+}
+function _updateDirtyTabBadge() {
+  if (_adminMode !== 'test') return;
+  const el = document.getElementById('adminSecTabs');
+  if (el) el.innerHTML = _buildSecTabsInnerHTML();
+}
+
+/* ── Package sidebar builder ──────────────────────────────── */
+function _buildPkgSidebarHTML() {
+  const customs   = JSON.parse(localStorage.getItem(CUSTOM_TEST_PKGS_KEY) || '[]');
+  const customIds = new Set(customs.map(c => c.id));
+
+  const allPkgs = Object.values(TEST_PACKAGES)
+    .sort((a, b) => (customIds.has(a.id) ? 1 : 0) - (customIds.has(b.id) ? 1 : 0));
+
+  const pkgRows = allPkgs.map(p => {
+    const isExpanded  = _aExpandedPkgs.has(p.id);
+    const isActivePkg = p.id === _aPkg;
+    const isRenamingPkg = _aRenamingPkg === p.id;
+
+    const pkgNameEl = isRenamingPkg
+      ? `<input id="rename-pkg-input" class="ls-rename-input admin-create-inline-form" value="${_esc(p.name)}"
+           onkeydown="if(event.key==='Enter')adminConfirmRenamePkg('${p.id}');if(event.key==='Escape')adminCancelRename()">
+         <button class="ls-rename-confirm-btn" onclick="adminConfirmRenamePkg('${p.id}')">&#10003;</button>
+         <button class="ls-rename-cancel-btn" onclick="adminCancelRename()">&#10007;</button>`
+      : `<span class="pkg-name-label" ondblclick="event.stopPropagation();adminStartRenamePkg('${p.id}')">${_esc(p.name)}</span>
+         <button class="admin-sidebar-add-btn btn btn-sm btn-outline"
+           onclick="event.stopPropagation();adminShowCreateTestModal('${p.id}')" title="Add test">+</button>
+         <button class="admin-sidebar-delete-btn" title="Delete package"
+           onclick="event.stopPropagation();adminDeleteTestPkg('${p.id}')">&#128465;</button>`;
+
+    const testRows = isExpanded ? Object.values(p.tests).map(t => {
+      const isActive = p.id === _aPkg && t.id === _aTest;
+      const isRenamingTest = _aRenamingTest && _aRenamingTest.pkgId === p.id && _aRenamingTest.testId === t.id;
+      const nameEl = isRenamingTest
+        ? `<input id="rename-test-input" class="ls-rename-input admin-create-inline-form" value="${_esc(t.name)}"
+             onkeydown="if(event.key==='Enter')adminConfirmRenameTest('${p.id}','${t.id}');if(event.key==='Escape')adminCancelRename()">
+           <button class="ls-rename-confirm-btn" onclick="adminConfirmRenameTest('${p.id}','${t.id}')">&#10003;</button>
+           <button class="ls-rename-cancel-btn" onclick="adminCancelRename()">&#10007;</button>`
+        : `<span class="test-name-label" onclick="adminSidebarSelectTest('${p.id}','${t.id}')"
+             ondblclick="adminStartRenameTest('${p.id}','${t.id}')">${_esc(t.name)}</span>
+           <button class="admin-sidebar-delete-btn" title="Delete test"
+             onclick="event.stopPropagation();adminDeleteTest('${p.id}','${t.id}')">&#128465;</button>`;
+      return `<div class="admin-sidebar-test-row${isActive ? ' active' : ''}">${nameEl}</div>`;
+    }).join('') : '';
+
+    return `
+      <div class="admin-sidebar-pkg">
+        <div class="admin-sidebar-pkg-row${isActivePkg ? ' active' : ''}"
+          onclick="adminSidebarToggleExpand('${p.id}')">
+          <span class="admin-sidebar-expand-arrow${isExpanded ? ' open' : ''}">&#9654;</span>
+          ${pkgNameEl}
+        </div>
+        ${isExpanded ? `<div class="admin-sidebar-test-list">${testRows}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  return `${pkgRows}
+    <button class="btn btn-sm btn-outline admin-sidebar-new-pkg-btn" onclick="adminShowCreatePkgModal()">+ New Package</button>`;
+}
+
+function _renderPkgSidebar() {
+  const el = document.getElementById('adminPkgSidebar');
+  if (el) el.innerHTML = _buildPkgSidebarHTML();
+  _updateDirtyTabBadge();
+}
+
+function adminSidebarToggleExpand(pkgId) {
+  if (_aExpandedPkgs.has(pkgId)) _aExpandedPkgs.delete(pkgId);
+  else _aExpandedPkgs.add(pkgId);
+  _renderPkgSidebar();
+}
+
+function adminSidebarSelectTest(pkgId, testId) {
+  _adminGuard(() => {
+    _aPkg  = pkgId;
+    _aTest = testId;
+    _aListeningPart = 0;
+    const test   = TEST_PACKAGES[pkgId] && TEST_PACKAGES[pkgId].tests[testId];
+    const editor = document.getElementById('adminEditor');
+    if (editor) {
+      _adminRendering = true;
+      editor.innerHTML = _buildEditor(test);
+      setTimeout(() => { _adminRendering = false; _takeAdminSnapshot(); }, 0);
+    }
+    _renderPkgSidebar();
+    _updateFloatSave();
+  });
+}
+
+function adminStartRenamePkg(pkgId) {
+  _aRenamingPkg = pkgId; _aRenamingTest = null;
+  _renderPkgSidebar();
+  setTimeout(() => { const el = document.getElementById('rename-pkg-input'); if (el) { el.focus(); el.select(); } }, 0);
+}
+function adminStartRenameTest(pkgId, testId) {
+  _aRenamingTest = { pkgId, testId }; _aRenamingPkg = null;
+  _renderPkgSidebar();
+  setTimeout(() => { const el = document.getElementById('rename-test-input'); if (el) { el.focus(); el.select(); } }, 0);
+}
+function adminCancelRename() { _aRenamingPkg = null; _aRenamingTest = null; _renderPkgSidebar(); }
+
+function adminConfirmRenamePkg(pkgId) {
+  const name = (document.getElementById('rename-pkg-input')?.value || '').trim();
+  if (!name) { showToast('Name cannot be empty.'); return; }
+  TEST_PACKAGES[pkgId].name = name;
+  const store = _getAdminStore();
+  if (!store[pkgId]) store[pkgId] = {};
+  store[pkgId]._name = name;
+  _lsSave(ADMIN_DATA_KEY, store);
+  // Update custom packages list if this is a custom package
   const customs = JSON.parse(localStorage.getItem(CUSTOM_TEST_PKGS_KEY) || '[]');
-  const isCustom = customs.some(c => c.id === _aPkg);
+  const ci = customs.findIndex(c => c.id === pkgId);
+  if (ci !== -1) { customs[ci].name = name; _lsSave(CUSTOM_TEST_PKGS_KEY, customs); }
+  _aRenamingPkg = null;
+  _refreshTestPickerInMockTest();
+  _renderPkgSidebar();
+  showToast('Package renamed.');
+}
 
+function adminConfirmRenameTest(pkgId, testId) {
+  const name = (document.getElementById('rename-test-input')?.value || '').trim();
+  if (!name) { showToast('Name cannot be empty.'); return; }
+  TEST_PACKAGES[pkgId].tests[testId].name = name;
+  const store = _getAdminStore();
+  if (!store[pkgId]) store[pkgId] = {};
+  if (!store[pkgId][testId]) store[pkgId][testId] = {};
+  store[pkgId][testId]._name = name;
+  _lsSave(ADMIN_DATA_KEY, store);
+  // Update custom tests list — this is the root rename bug fix
+  const customTests = JSON.parse(localStorage.getItem(CUSTOM_TESTS_KEY) || '{}');
+  const tList = customTests[pkgId];
+  if (tList) {
+    const ti = tList.findIndex(t => t.id === testId);
+    if (ti !== -1) { tList[ti].name = name; _lsSave(CUSTOM_TESTS_KEY, customTests); }
+  }
+  _aRenamingTest = null;
+  _refreshTestPickerInMockTest();
+  _renderPkgSidebar();
+  showToast('Test renamed.');
+}
+
+/* ── Create package / test via modal ─────────────────────── */
+function adminShowCreatePkgModal() {
+  _showAdminInputModal('New Test Package',
+    `<input id="modal-new-pkg-name" class="admin-input" placeholder="e.g. Cambridge IELTS 19" style="width:100%;margin-top:0.5rem;">`,
+    adminConfirmCreateTestPkg
+  );
+  setTimeout(() => document.getElementById('modal-new-pkg-name')?.focus(), 50);
+}
+
+function adminShowCreateTestModal(pkgId) {
+  _showAdminInputModal('New Test',
+    `<input id="modal-new-test-name" class="admin-input" placeholder="e.g. Test 5" style="width:100%;margin-top:0.5rem;">`,
+    () => adminConfirmCreateTest(pkgId)
+  );
+  setTimeout(() => document.getElementById('modal-new-test-name')?.focus(), 50);
+}
+
+/* ── Import section JSON via modal ───────────────────────── */
+function adminShowImportSectionModal() {
+  const schemaMap = { listening: LISTENING_JSON_SCHEMA, reading: READING_JSON_SCHEMA, writing: WRITING_JSON_SCHEMA, speaking: SPEAKING_JSON_SCHEMA };
+  const schema = schemaMap[_aSec] || '';
+  const canAppend = _aSec === 'listening' || _aSec === 'reading';
+  const appendBtn = canAppend
+    ? `<button class="btn btn-outline" style="flex-shrink:0;" onclick="closeModal();_adminDoImportSection(false)">&#8679; Append</button>`
+    : '';
+  _showAdminInputModal(`Import ${_aSec.charAt(0).toUpperCase() + _aSec.slice(1)} JSON`,
+    `<textarea id="section-import-ta" class="admin-textarea ls-json-textarea" rows="12"
+      placeholder="Paste JSON here..." style="width:100%;margin-top:0.5rem;"></textarea>
+     <details style="margin-top:0.6rem;">
+       <summary style="font-size:0.8rem;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;gap:0.5rem;">
+         <span>JSON Schema &#9658;</span>
+         <button class="btn btn-sm btn-outline" style="font-size:0.7rem;padding:0.1rem 0.5rem;margin-left:auto;"
+           onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(document.getElementById('schema-pre-display').textContent).then(()=>showToast('Schema copied!'))">&#128203; Copy</button>
+       </summary>
+       <pre id="schema-pre-display" style="font-size:0.65rem;overflow-x:auto;overflow-y:auto;max-height:260px;background:var(--sidebar-bg,#f8f9fa);padding:0.5rem;border-radius:4px;white-space:pre-wrap;margin-top:0.4rem;">${_esc(schema)}</pre>
+     </details>
+     <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">${appendBtn}</div>`,
+    () => _adminDoImportSection(true)
+  );
+  setTimeout(() => {
+    const btn = document.getElementById('modalConfirmBtn');
+    if (btn) btn.textContent = 'Replace All';
+    document.getElementById('section-import-ta')?.focus();
+  }, 50);
+}
+
+function _adminDoImportSection(replaceAll) {
+  const raw = (_val('section-import-ta') || '').trim();
+  if (!raw) { showToast('Paste JSON first.'); return; }
+  if (_aSec === 'listening') {
+    const ta = document.getElementById(`ls-import-json-${_aListeningPart}`);
+    if (ta) ta.value = raw;
+    adminImportListeningJSON(_aListeningPart, replaceAll);
+  } else if (_aSec === 'reading') {
+    const ta = document.getElementById('rd-import-json-0');
+    if (ta) ta.value = raw;
+    adminImportReadingJSON(0, replaceAll);
+  } else if (_aSec === 'writing') {
+    const ta = document.getElementById('wr-import-json');
+    if (ta) ta.value = raw;
+    adminImportWritingJSON();
+  } else if (_aSec === 'speaking') {
+    const ta = document.getElementById('sp-import-json');
+    if (ta) ta.value = raw;
+    adminImportSpeakingJSON();
+  }
+}
+
+/* ── Save current section dispatcher ─────────────────────── */
+function adminSaveCurrent() {
+  if (_aSec === 'listening')     adminSaveListening();
+  else if (_aSec === 'reading')  adminSaveReading();
+  else if (_aSec === 'writing')  adminSaveWriting();
+  else if (_aSec === 'speaking') adminSaveSpeaking();
+}
+
+/* ── Delete test package (modal confirmation) ─────────────── */
+function adminDeleteTestPkg(pkgId) {
+  pkgId = pkgId || _aPkg;
+  const pkg = TEST_PACKAGES[pkgId];
+  if (!pkg) return;
+  showModal('Delete Package', `Delete "${pkg.name}" and all its tests? This cannot be undone.`, () => _doDeleteTestPkg(pkgId));
+}
+function _doDeleteTestPkg(pkgId) {
+  const customs  = JSON.parse(localStorage.getItem(CUSTOM_TEST_PKGS_KEY) || '[]');
+  const isCustom = customs.some(c => c.id === pkgId);
   if (isCustom) {
-    _lsSave(CUSTOM_TEST_PKGS_KEY, customs.filter(c => c.id !== _aPkg));
+    _lsSave(CUSTOM_TEST_PKGS_KEY, customs.filter(c => c.id !== pkgId));
     const customTests = JSON.parse(localStorage.getItem(CUSTOM_TESTS_KEY) || '{}');
-    delete customTests[_aPkg];
+    delete customTests[pkgId];
     _lsSave(CUSTOM_TESTS_KEY, customTests);
     const store = _getAdminStore();
-    delete store[_aPkg];
+    delete store[pkgId];
     _lsSave(ADMIN_DATA_KEY, store);
   } else {
     const hidden = JSON.parse(localStorage.getItem(HIDDEN_TESTS_KEY) || '{"pkgs":[],"tests":{}}');
-    if (!hidden.pkgs.includes(_aPkg)) hidden.pkgs.push(_aPkg);
+    if (!hidden.pkgs.includes(pkgId)) hidden.pkgs.push(pkgId);
     _lsSave(HIDDEN_TESTS_KEY, hidden);
   }
-
-  const name = pkg.name;
-  delete TEST_PACKAGES[_aPkg];
-
+  const name = TEST_PACKAGES[pkgId].name;
+  delete TEST_PACKAGES[pkgId];
+  _aExpandedPkgs.delete(pkgId);
   const remaining = Object.keys(TEST_PACKAGES);
-  if (remaining.length) {
-    _aPkg  = remaining[0];
-    _aTest = Object.keys(TEST_PACKAGES[_aPkg].tests)[0];
-  }
+  if (remaining.length) { _aPkg = remaining[0]; _aTest = Object.keys(TEST_PACKAGES[_aPkg].tests)[0]; }
+  _refreshTestPickerInMockTest();
   renderAdmin();
   showToast(`Package "${name}" removed.`);
 }
 
-function adminDeleteTest() {
-  const pkg  = TEST_PACKAGES[_aPkg];
-  const test = pkg && pkg.tests[_aTest];
+/* ── Delete individual test (modal confirmation) ─────────── */
+function adminDeleteTest(pkgId, testId) {
+  pkgId  = pkgId  || _aPkg;
+  testId = testId || _aTest;
+  const pkg  = TEST_PACKAGES[pkgId];
+  const test = pkg && pkg.tests[testId];
   if (!test) return;
-  if (!confirm(`Delete test "${test.name}" from "${pkg.name}"?\nThis cannot be undone.`)) return;
-
+  showModal('Delete Test', `Delete "${test.name}" from "${pkg.name}"? This cannot be undone.`, () => _doDeleteTest(pkgId, testId));
+}
+function _doDeleteTest(pkgId, testId) {
   const customTests = JSON.parse(localStorage.getItem(CUSTOM_TESTS_KEY) || '{}');
-  const pkgCustoms  = customTests[_aPkg] || [];
-  const isCustom    = pkgCustoms.some(t => t.id === _aTest);
-
+  const pkgCustoms  = customTests[pkgId] || [];
+  const isCustom    = pkgCustoms.some(t => t.id === testId);
   if (isCustom) {
-    customTests[_aPkg] = pkgCustoms.filter(t => t.id !== _aTest);
+    customTests[pkgId] = pkgCustoms.filter(t => t.id !== testId);
     _lsSave(CUSTOM_TESTS_KEY, customTests);
     const store = _getAdminStore();
-    if (store[_aPkg]) { delete store[_aPkg][_aTest]; _lsSave(ADMIN_DATA_KEY, store); }
+    if (store[pkgId]) { delete store[pkgId][testId]; _lsSave(ADMIN_DATA_KEY, store); }
   } else {
     const hidden = JSON.parse(localStorage.getItem(HIDDEN_TESTS_KEY) || '{"pkgs":[],"tests":{}}');
-    if (!hidden.tests[_aPkg]) hidden.tests[_aPkg] = [];
-    if (!hidden.tests[_aPkg].includes(_aTest)) hidden.tests[_aPkg].push(_aTest);
+    if (!hidden.tests[pkgId]) hidden.tests[pkgId] = [];
+    if (!hidden.tests[pkgId].includes(testId)) hidden.tests[pkgId].push(testId);
     _lsSave(HIDDEN_TESTS_KEY, hidden);
   }
-
-  const name = test.name;
-  delete pkg.tests[_aTest];
-
-  const remaining = Object.keys(pkg.tests);
+  const name = TEST_PACKAGES[pkgId].tests[testId].name;
+  delete TEST_PACKAGES[pkgId].tests[testId];
+  const remaining = Object.keys(TEST_PACKAGES[pkgId].tests);
   if (remaining.length) _aTest = remaining[0];
+  _refreshTestPickerInMockTest();
   renderAdmin();
   showToast(`Test "${name}" removed.`);
 }
 
 /* ── Create new test package ─────────────────────────────── */
 function adminConfirmCreateTestPkg() {
-  const name = (_val('newTestPkgName') || '').trim();
+  const name = (_val('modal-new-pkg-name') || '').trim();
   if (!name) { showToast('Package name is required.'); return; }
-
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   const id   = 'tpkg_' + slug + '_' + Date.now();
-
-  // First test created automatically
   const firstTestId = 'test1';
   TEST_PACKAGES[id] = {
     id, name,
-    tests: {
-      [firstTestId]: { id: firstTestId, name: 'Test 1', listening: null, reading: null, writing: null, speaking: null }
-    }
+    tests: { [firstTestId]: { id: firstTestId, name: 'Test 1', listening: null, reading: null, writing: null, speaking: null } }
   };
-
   const customs = JSON.parse(localStorage.getItem(CUSTOM_TEST_PKGS_KEY) || '[]');
   customs.push({ id, name });
   _lsSave(CUSTOM_TEST_PKGS_KEY, customs);
-
   const customTests = JSON.parse(localStorage.getItem(CUSTOM_TESTS_KEY) || '{}');
   customTests[id] = [{ id: firstTestId, name: 'Test 1' }];
   _lsSave(CUSTOM_TESTS_KEY, customTests);
-
   _aPkg = id; _aTest = firstTestId;
-  _aShowCreateTestPkg = false;
+  _aExpandedPkgs.add(id);
+  _refreshTestPickerInMockTest();
   renderAdmin();
   showToast(`Package "${name}" created.`);
 }
 
-/* ── Create new test within current package ──────────────── */
-function adminConfirmCreateTest() {
-  const name = (_val('newTestName') || '').trim();
+/* ── Create new test within a package ────────────────────── */
+function adminConfirmCreateTest(pkgId) {
+  const name = (_val('modal-new-test-name') || '').trim();
   if (!name) { showToast('Test name is required.'); return; }
-
   const id = 'test_' + Date.now();
-  TEST_PACKAGES[_aPkg].tests[id] = { id, name, listening: null, reading: null, writing: null, speaking: null };
-
+  TEST_PACKAGES[pkgId].tests[id] = { id, name, listening: null, reading: null, writing: null, speaking: null };
   const customTests = JSON.parse(localStorage.getItem(CUSTOM_TESTS_KEY) || '{}');
-  if (!customTests[_aPkg]) customTests[_aPkg] = [];
-  customTests[_aPkg].push({ id, name });
+  if (!customTests[pkgId]) customTests[pkgId] = [];
+  customTests[pkgId].push({ id, name });
   _lsSave(CUSTOM_TESTS_KEY, customTests);
-
-  _aTest = id;
-  _aShowCreateTest = false;
+  _aPkg = pkgId; _aTest = id;
+  _aExpandedPkgs.add(pkgId);
+  _refreshTestPickerInMockTest();
   renderAdmin();
   showToast(`Test "${name}" created.`);
 }
@@ -582,69 +788,30 @@ async function _buildMain() {
     return await _buildStudentsDashboard();
   }
 
-  // Test editor mode
+  // Test editor — two-panel layout
   const pkg  = TEST_PACKAGES[_aPkg];
   const test = pkg && pkg.tests[_aTest];
 
-  const pkgOpts  = Object.values(TEST_PACKAGES)
-    .map(p => `<option value="${p.id}"${p.id === _aPkg ? ' selected' : ''}>${p.name}</option>`)
-    .join('');
-  const testOpts = pkg ? Object.values(pkg.tests)
-    .map(t => `<option value="${t.id}"${t.id === _aTest ? ' selected' : ''}>${t.name}</option>`)
-    .join('') : '';
-  const secTabs  = ['listening','reading','writing','speaking'].map(s =>
-    `<button class="admin-sec-tab${_aSec === s ? ' active' : ''}"
-      onclick="adminSetSec('${s}')">${s.charAt(0).toUpperCase() + s.slice(1)}</button>`
-  ).join('');
-
-  const createTestPkgForm = _aShowCreateTestPkg ? `
-    <div class="admin-create-inline-form">
-      <input class="admin-input" id="newTestPkgName" placeholder="Package name (e.g. Cambridge IELTS 19)" style="flex:1">
-      <button class="btn btn-sm btn-primary" onclick="adminConfirmCreateTestPkg()">&#10003; Create</button>
-      <button class="btn btn-sm btn-outline" onclick="_aShowCreateTestPkg=false;renderAdmin()">Cancel</button>
-    </div>` : '';
-
-  const createTestForm = _aShowCreateTest ? `
-    <div class="admin-create-inline-form">
-      <input class="admin-input" id="newTestName" placeholder="Test name (e.g. Test 5)" style="flex:1">
-      <button class="btn btn-sm btn-primary" onclick="adminConfirmCreateTest()">&#10003; Create</button>
-      <button class="btn btn-sm btn-outline" onclick="_aShowCreateTest=false;renderAdmin()">Cancel</button>
-    </div>` : '';
+  // Ensure the active package is expanded in the sidebar on every render
+  _aExpandedPkgs.add(_aPkg);
 
   return `
-  <div class="admin-topbar">
-    <div class="admin-selectors">
-      <div class="admin-selector-group">
-        <select class="test-picker-select" onchange="adminSetPkg(this.value)">${pkgOpts}</select>
-        <button class="admin-sel-delete" title="Delete this package" onclick="adminDeleteTestPkg()">&#128465;</button>
-        <button class="btn btn-sm btn-outline admin-new-btn" onclick="_aShowCreateTestPkg=!_aShowCreateTestPkg;_aShowCreateTest=false;renderAdmin()">+ Package</button>
+  <div class="admin-test-layout">
+    <div class="admin-pkg-sidebar" id="adminPkgSidebar">
+      ${_buildPkgSidebarHTML()}
+    </div>
+    <div class="admin-editor-area">
+      <div class="admin-sec-tabs" id="adminSecTabs">
+        ${_buildSecTabsInnerHTML()}
       </div>
-      <div class="admin-selector-group">
-        <select class="test-picker-select" onchange="adminSetTest(this.value)">${testOpts}</select>
-        <button class="admin-sel-delete" title="Delete this test" onclick="adminDeleteTest()">&#128465;</button>
-        <button class="btn btn-sm btn-outline admin-new-btn" onclick="_aShowCreateTest=!_aShowCreateTest;_aShowCreateTestPkg=false;renderAdmin()">+ Test</button>
+      <div class="admin-editor-topbar">
+        <button class="btn btn-sm btn-outline" onclick="adminShowImportSectionModal()">&#8679; Import JSON</button>
+        <button class="btn btn-primary" onclick="adminSaveCurrent()">&#128190; Save Section</button>
+      </div>
+      <div class="admin-editor" id="adminEditor">
+        ${_buildEditor(test)}
       </div>
     </div>
-  </div>
-  ${createTestPkgForm}${createTestForm}
-
-  <div class="admin-names-row">
-    <div class="admin-field-row" style="flex:1">
-      <label class="admin-label">Package Display Name</label>
-      <input class="admin-input" id="admin-pkg-name" value="${_esc(pkg ? pkg.name : '')}" placeholder="e.g. Cambridge IELTS 18">
-    </div>
-    <div class="admin-field-row" style="flex:1">
-      <label class="admin-label">Test Display Name</label>
-      <input class="admin-input" id="admin-test-name" value="${_esc(test ? test.name : '')}" placeholder="e.g. Test 1">
-    </div>
-    <button class="btn btn-sm btn-outline" style="align-self:flex-end;flex-shrink:0"
-      onclick="adminSaveNames()">&#128190; Save Names</button>
-  </div>
-
-  <div class="admin-sec-tabs">${secTabs}</div>
-
-  <div class="admin-editor" id="adminEditor">
-    ${_buildEditor(test)}
   </div>`;
 }
 
