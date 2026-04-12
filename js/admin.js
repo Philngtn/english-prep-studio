@@ -950,12 +950,17 @@ QUESTION TYPES
    }
 
 9. matching  ← options shown as reference list; each question has a dropdown
+   "question"        — main question text shown above the options list
+                       (e.g. "Which event in the history of football took place in each year?")
+   "instruction"     — secondary instruction line below the question
+                       (e.g. "Choose SIX answers from the box and write the correct letter, A–H, next to Questions")
    "options_heading" (optional) — bold title above the options list
-   "options" — shared list shown to student, format "A. description"
+   "options"         — shared list shown to student, format "A. description"
    "text" on each question — the label/year the student is matching (e.g. "1870")
-   "answer" — the correct letter e.g. ["E"]
+   "answer"          — the correct letter e.g. ["E"]
    { "type": "matching",
-     "instruction": "Which event took place in each of the following years? Choose SIX answers from the box and write the correct letter, A–H.",
+     "question": "Which event in the history of football in the UK took place in each of the following years?",
+     "instruction": "Choose SIX answers from the box and write the correct letter, A–H, next to Questions",
      "options_heading": "Events in the history of football",
      "options": [
        "A. the introduction of pay for the players",
@@ -1014,7 +1019,7 @@ FOR note_completion — use this format (NOT label/answer rows):
 FOR sentence_completion with inline blanks → use "tokens" array per question.
 FOR summary_completion with multiple blanks → put all tokens on first question only; other questions just need id+answer+start.
 FOR multiple_choice two answers → add "multi": true, "count": 2 on the group.
-FOR matching → "options" is the shared A–H list shown to students (format: "A. description"); "text" on each question is the label/year being matched; add "options_heading" for the bold title above the list.
+FOR matching → "question" is the main question text (e.g. "Which event... took place in each year?"); "instruction" is the secondary line (e.g. "Choose SIX answers... write the correct letter, A–H, next to Questions"); "options" is the shared A–H list (format: "A. description"); "text" on each question is the label/year being matched; add "options_heading" for the bold title above the list.
 FOR map/diagram labeling → set x and y to 0 (positions are set visually in the admin tool).
 
 TRANSCRIPT:
@@ -1474,7 +1479,7 @@ function _lsGroupsToFlat(section, si) {
     const type     = _lsNormalizeType(group.type);
     const isGfx    = type === 'map_labeling' || type === 'diagram_labeling' || type === 'plan_labeling';
     const isGroup  = isGfx || ['flow_chart','table_completion','form_completion','note_completion',
-                                'sentence_completion','summary_completion'].includes(type);
+                                'sentence_completion','summary_completion','matching'].includes(type);
     const items    = isGfx ? (group.labels || group.questions || []) : (group.questions || []);
     const answerRule  = group.answer_rule || group.answerRule || '';
     const instruction = group.instruction || '';
@@ -1539,7 +1544,10 @@ function _lsGroupsToFlat(section, si) {
       if (isGroup) q.groupId = groupId;
       if (answerRule)  q.answerRule  = answerRule;
       if (instruction) q.instruction = ii === 0 ? instruction : '';  // only first in group
-      if (type === 'matching' && ii === 0) q.optionsHeading = group.options_heading || group.optionsHeading || '';
+      if (type === 'matching' && ii === 0) {
+        q.optionsHeading = group.options_heading || group.optionsHeading || '';
+        q.matchQuestion  = group.question || '';
+      }
       if (isGfx)  { q.groupImage = group.image || ''; q.xPct = item.x || 0; q.yPct = item.y || 0; q.labelText = item.label || ''; }
       if (type === 'flow_chart')       { q.nodeNum = item.node || (ii + 1); q.prefix = item.prefix || ''; q.suffix = item.suffix || ''; }
       if (type === 'table_completion') { q.rowContext = item.row || ''; q.colContext = item.col || ''; q.groupColumns = group.columns || []; }
@@ -2069,6 +2077,10 @@ function _buildListeningQuestionRow(si, qi, q) {
   const optionsSection = (type === 'mcq' || type === 'multi' || type === 'matching') ? `
     ${type === 'matching' ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Main Question <small style="color:var(--text-muted);">(e.g. "Which event in the history of football took place in each year?")</small></label>
+      <input class="admin-input" id="ls-matchq-${si}-${qi}" value="${_esc(q.matchQuestion||'')}" placeholder="e.g. Which event in the history of football...">
+    </div>
+    <div class="admin-field-row" style="margin-top:0.5rem;">
       <label class="admin-label">Options Heading <small style="color:var(--text-muted);">(e.g. "Events in the history of football")</small></label>
       <input class="admin-input" id="ls-opthead-${si}-${qi}" value="${_esc(q.optionsHeading||'')}" placeholder="e.g. Events in the history of football">
     </div>` : ''}
@@ -2262,6 +2274,7 @@ function _collectListeningData() {
       const parsedNum  = qNum && !isNaN(qNum) ? parseInt(qNum) : (qNum || '');
       const groupId       = _val(`ls-grpid-${si}-${qi}`);
       const optionsHeading = type === 'matching' ? _val(`ls-opthead-${si}-${qi}`) : undefined;
+      const matchQuestion  = type === 'matching' ? _val(`ls-matchq-${si}-${qi}`)  : undefined;
       const groupImage = _val(`ls-img-${si}-${qi}`);
       const xPct       = parseFloat(_val(`ls-xpct-${si}-${qi}`)) || 0;
       const yPct       = parseFloat(_val(`ls-ypct-${si}-${qi}`)) || 0;
@@ -2313,6 +2326,7 @@ function _collectListeningData() {
         ...(sectionHeading != null ? { sectionHeading } : {}),
         ...(groupTitle     != null ? { groupTitle }     : {}),
         ...(optionsHeading != null ? { optionsHeading } : {}),
+        ...(matchQuestion  != null ? { matchQuestion }  : {}),
       });
       qi++;
     }

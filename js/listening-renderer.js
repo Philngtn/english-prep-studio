@@ -395,11 +395,16 @@ function lsRenderSummaryGroup(peers, rangeLabel) {
 /* ── Renderer: Matching (options list + dropdowns) ─────────── */
 function lsRenderMatchingGroup(peers, rangeLabel) {
   const answerRule     = (peers[0] && peers[0].answerRule)     || '';
+  const matchQuestion  = (peers[0] && peers[0].matchQuestion)  || '';
   const instruction    = (peers[0] && peers[0].instruction)    || '';
   const optionsHeading = (peers[0] && peers[0].optionsHeading) || '';
   const options        = (peers[0] && peers[0].options)        || [];
 
-  // Instruction — supports newlines rendered as line breaks
+  // Main question text (e.g. "Which event in the history of football...")
+  const questionHtml = matchQuestion
+    ? `<div class="ls-matching-question">${lsEsc(matchQuestion)}</div>` : '';
+
+  // Instruction line (e.g. "Choose SIX answers from the box...")
   const instructionHtml = instruction
     ? `<div class="ls-matching-instruction">${lsEsc(instruction).replace(/\n/g,'<br>')}</div>` : '';
 
@@ -427,7 +432,7 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
     return ddOpts;
   };
 
-  // Question rows: [Q#] [year/label] [dropdown]
+  // Question rows: [Q#] [year/label] [dropdown] — inline, tightly grouped
   const questionsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-matching-row">
@@ -442,6 +447,7 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
   return `<div class="question-block ls-matching-block" data-group="${lsEsc(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsJumpBtn(peers[0].questionStart)}
+    ${questionHtml}
     ${instructionHtml}
     ${answerRule ? `<div class="ls-answer-rule">Write ${lsEsc(answerRule)}</div>` : ''}
     ${optionsHtml}
