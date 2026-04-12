@@ -5,6 +5,8 @@ let _lastSectionId    = null;   // which section's questions are currently displ
 let _audioSectionId   = null;   // which section's audio is loaded in the player
 let _transcriptExpanded = false;
 let _audioFinishedSections = new Set();   // section ids whose audio has reached 'ended'
+let _sectionBreakTimer = null;      // interval id for the inter-section break countdown
+let _sectionBreakSectionId = null;  // section currently in its post-audio break period
 
 /* ============================================================
    ===== TEST SECTION START =====
@@ -28,6 +30,8 @@ function startTestSection(section) {
   switchTab('mock-test');
   _audioFinishedSections = new Set();
   _audioSectionId = null;
+  if (_sectionBreakTimer) { clearInterval(_sectionBreakTimer); _sectionBreakTimer = null; }
+  _sectionBreakSectionId = null;
   appState.test = {
     active: true,
     section,
@@ -596,10 +600,14 @@ function _updateListeningPlayerBar(section) {
   // Only rebuild the audio element when the section actually changes
   if (_audioSectionId === section.id) return;
 
-  // Countdown mode: only start a section's audio once all prior sections have finished
-  if (appState.timerCountdown && !_isSectionAudioUnlocked(section.id)) {
-    // Student navigated to view this section's questions early — keep current audio running
-    return;
+  if (appState.timerCountdown) {
+    // Never restart a section whose audio has already played (finished or in break cooldown)
+    if (_audioFinishedSections.has(section.id) || _sectionBreakSectionId === section.id) return;
+    // Only start a section's audio once all prior sections have finished their break
+    if (!_isSectionAudioUnlocked(section.id)) {
+      // Student navigated to view this section's questions early — keep current audio running
+      return;
+    }
   }
 
   player.innerHTML = _buildAudioPlayer(section.audioUrl);
@@ -620,7 +628,7 @@ function _updateListeningPlayerBar(section) {
     audioEl.play().catch(() => {});
     audioEl.addEventListener('pause', _lsPauseLockHandler);
     audioEl.addEventListener('ended', () => {
-      _audioFinishedSections.add(section.id);
+      _startSectionBreak(section);
     }, { once: true });
   }
   // Practice mode: native player — audio always starts from the beginning (no seek needed)
@@ -633,6 +641,55 @@ function _isSectionAudioUnlocked(sectionId) {
   const idx = sections.findIndex(s => s.id === sectionId);
   if (idx <= 0) return true;
   return sections.slice(0, idx).every(s => _audioFinishedSections.has(s.id));
+}
+
+/* Called when a section's audio ends in countdown mode.
+   Runs a 60-second inter-section break, then unlocks the next section. */
+const SECTION_BREAK_SECONDS = 60;
+function _startSectionBreak(finishedSection) {
+  const sections = (appState.test && appState.test.sections) || [];
+  const sectionIdx = sections.findIndex(s => s.id === finishedSection.id);
+  const isLast = sectionIdx >= sections.length - 1;
+
+  _sectionBreakSectionId = finishedSection.id;
+
+  // Last section: no break needed, just mark finished
+  if (isLast) {
+    _audioFinishedSections.add(finishedSection.id);
+    _sectionBreakSectionId = null;
+    return;
+  }
+
+  let remaining = SECTION_BREAK_SECONDS;
+
+  function updateBreakDisplay() {
+    const label = document.getElementById('lpbSectionLabel');
+    const timeEl = document.getElementById('ls-cp-time');
+    if (label) label.textContent = `⏸ Break — next section in ${remaining}s`;
+    if (timeEl) timeEl.textContent = `${remaining}s`;
+  }
+  updateBreakDisplay();
+
+  if (_sectionBreakTimer) clearInterval(_sectionBreakTimer);
+  _sectionBreakTimer = setInterval(() => {
+    remaining--;
+    updateBreakDisplay();
+    if (remaining <= 0) {
+      clearInterval(_sectionBreakTimer);
+      _sectionBreakTimer = null;
+      _sectionBreakSectionId = null;
+      _audioFinishedSections.add(finishedSection.id);
+      // If student is already viewing the next section, start its audio now
+      const qs = appState.test && appState.test.flatQuestions;
+      const currentQ = qs && qs[appState.test.currentQ];
+      if (currentQ && currentQ.sectionId) {
+        const currentSection = sections.find(s => s.id === currentQ.sectionId);
+        if (currentSection && currentSection.id !== finishedSection.id) {
+          _updateListeningPlayerBar(currentSection);
+        }
+      }
+    }
+  }, 1000);
 }
 
 /* Prevents the student from pausing audio during a timed test.
@@ -1322,6 +1379,8 @@ function backToSelector() {
   }
   _lastPassageId = null;
   _lastSectionId = null;
+  if (_sectionBreakTimer) { clearInterval(_sectionBreakTimer); _sectionBreakTimer = null; }
+  _sectionBreakSectionId = null;
   _updateListeningPlayerBar(null);
   stopTimer();
   document.getElementById('testInterface').style.display    = 'none';
