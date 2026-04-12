@@ -624,7 +624,8 @@ function _rdRenderQuestion(q, idx) {
         <ul class="rd-option-bank-list">
           ${opts.map((opt, i) => {
             const letter = String.fromCharCode(65 + i);
-            const display = opt.length <= 2 ? `Paragraph ${opt}` : opt;
+            const raw    = opt.replace(/^[A-Z]\.\s*/i, '');  // strip existing letter prefix
+            const display = raw.length <= 2 ? `Paragraph ${raw}` : raw;
             return `<li class="rd-option-bank-item">
               <span class="rd-opt-letter">${letter}.</span>
               <span class="rd-opt-text">${display}</span>
@@ -634,7 +635,8 @@ function _rdRenderQuestion(q, idx) {
       </div>` : '';
     const dropdownOpts = opts.map((opt, i) => {
       const letter  = String.fromCharCode(65 + i);
-      const display = opt.length <= 2 ? `Paragraph ${opt}` : opt;
+      const raw     = opt.replace(/^[A-Z]\.\s*/i, '');  // strip existing letter prefix
+      const display = raw.length <= 2 ? `Paragraph ${raw}` : raw;
       return `<option value="${letter}" ${saved===letter?'selected':''}>${letter}. ${display}</option>`;
     }).join('');
     body = `${optBankHtml}

@@ -276,7 +276,19 @@ const db = {
       ];
       await Promise.all(keyMap.map(async ([dbKey, lsKey]) => {
         const val = await db.getData(dbKey);
-        if (val !== null) localStorage.setItem(lsKey, JSON.stringify(val));
+        if (val === null) return;
+        // Only overwrite localStorage when Supabase has genuinely newer data.
+        // _lsSave stamps every write with _ts = Date.now(), so a stale Supabase
+        // copy (async write still in-flight) will have an older _ts and be skipped.
+        const localRaw = localStorage.getItem(lsKey);
+        if (localRaw !== null) {
+          try {
+            const localTs  = JSON.parse(localRaw)?._ts || 0;
+            const remoteTs = val._ts || 0;
+            if (localTs >= remoteTs) return;  // local is same age or newer — keep it
+          } catch { /* parse failure → fall through and overwrite */ }
+        }
+        localStorage.setItem(lsKey, JSON.stringify(val));
       }));
       const history = await db.loadHistory();
       if (history !== null && history.length > 0)

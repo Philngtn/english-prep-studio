@@ -149,9 +149,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function switchTab(tab) {
-  // Guard: require login for Practice and Review tabs
+  // Guard: require login for Practice and Review tabs (admins bypass)
   if ((tab === 'practice' || tab === 'review') &&
-      typeof isStudentLoggedIn === 'function' && !isStudentLoggedIn()) {
+      typeof isStudentLoggedIn === 'function' && !isStudentLoggedIn() &&
+      !(typeof isAdminLoggedIn === 'function' && isAdminLoggedIn())) {
     _authPendingTab = tab;
     if (typeof openAuthModal === 'function') openAuthModal();
     return;
@@ -170,6 +171,12 @@ function switchTab(tab) {
 }
 
 function _doSwitchTab(tab) {
+  // Flush any pending admin auto-save before leaving the admin tab so that
+  // renderAdmin() on return reads up-to-date TEST_PACKAGES, not stale null data.
+  if (appState.currentTab === 'admin' && tab !== 'admin' &&
+      typeof _adminFlushAutoSave === 'function') {
+    _adminFlushAutoSave();
+  }
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');

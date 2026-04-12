@@ -28,14 +28,27 @@ function isStudentLoggedIn()  { return !!_studentProfile; }
  */
 async function initStudentAuth() {
   db.onAuthStateChange(async (event, session) => {
+    // Ignore silent token refreshes and other housekeeping events that don't
+    // change auth state. Acting on them would cause renderAdmin() to destroy
+    // the admin editor DOM while the admin is actively editing content.
+    if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN' && event !== 'SIGNED_OUT') return;
+
     if (event === 'SIGNED_OUT') {
       _studentProfile = null;
+      // Clear admin state via globals defined in admin.js
+      if (typeof _adminAuth !== 'undefined') {
+        // eslint-disable-next-line no-global-assign
+        _adminAuth  = false;
+        _adminEmail = '';
+      }
       _updateAuthNav();
       // Redirect away from protected tabs
       if (typeof appState !== 'undefined' &&
           (appState.currentTab === 'practice' || appState.currentTab === 'review')) {
         if (typeof _doSwitchTab === 'function') _doSwitchTab('dashboard');
       }
+      // Re-render admin tab so it shows the sign-in prompt
+      if (typeof renderAdmin === 'function') renderAdmin();
       return;
     }
 
@@ -51,9 +64,28 @@ async function initStudentAuth() {
       profile = await db.getProfile(u.id);
     }
 
-    // Admin accounts must not bleed into student UI
-    if (profile?.role === 'admin') return;
+    // ── Admin account ────────────────────────────────────────
+    if (profile?.role === 'admin') {
+      const justActivated = typeof _adminAuth !== 'undefined' && !_adminAuth;
+      if (typeof _adminAuth !== 'undefined') {
+        _adminAuth  = true;
+        _adminEmail = session.user.email || '';
+      }
+      _updateAuthNav();
+      // Fresh login: close modal, show welcome toast
+      if (event === 'SIGNED_IN') {
+        const modal = document.getElementById('authModal');
+        if (modal && modal.style.display !== 'none') closeAuthModal();
+        if (typeof showToast === 'function') showToast(`Welcome, ${session.user.email}!`);
+      }
+      // Only re-render the admin tab when _adminAuth is first activated (false → true).
+      // Skipping re-renders on subsequent INITIAL_SESSION/TOKEN_REFRESHED events
+      // prevents the editor DOM from being destroyed while the admin is editing.
+      if (justActivated && typeof renderAdmin === 'function') renderAdmin();
+      return;
+    }
 
+    // ── Student account ──────────────────────────────────────
     _studentProfile = profile;
     _updateAuthNav();
 
@@ -84,32 +116,51 @@ async function initStudentAuth() {
 }
 
 function _updateAuthNav() {
-  const btn = document.getElementById('authNavBtn');
+  const btn   = document.getElementById('authNavBtn');
+  const badge = document.getElementById('adminRoleBadge');
   if (!btn) return;
-  if (_studentProfile) {
+
+  const isAdmin = typeof _adminAuth !== 'undefined' && _adminAuth;
+
+  if (isAdmin) {
+    const email = typeof _adminEmail !== 'undefined' ? _adminEmail : 'Admin';
+    btn.textContent = email;
+    btn.title = 'Click to sign out';
+    btn.classList.add('logged-in');
+    if (badge) badge.style.display = '';
+  } else if (_studentProfile) {
     btn.textContent = _studentProfile.name;
     btn.title = 'Click to sign out';
     btn.classList.add('logged-in');
+    if (badge) badge.style.display = 'none';
   } else {
     btn.textContent = 'Login';
     btn.title = '';
     btn.classList.remove('logged-in');
+    if (badge) badge.style.display = 'none';
   }
 }
 
 /* ── Modal open/close ─────────────────────────────────────── */
 function openAuthModal() {
-  if (_studentProfile) {
-    showModal('Sign Out', `Sign out as ${_studentProfile.name}?`, async () => {
-      await db.logout();
-      // onAuthStateChange SIGNED_OUT handles _studentProfile = null + nav update
+  const isAdmin = typeof _adminAuth !== 'undefined' && _adminAuth;
+
+  // Signed in (admin or student) → offer sign-out
+  if (isAdmin || _studentProfile) {
+    const name = isAdmin
+      ? (typeof _adminEmail !== 'undefined' ? _adminEmail : 'Admin')
+      : _studentProfile.name;
+    showModal('Sign Out', `Sign out as ${name}?`, async () => {
       localStorage.removeItem('ielts_history');
+      await db.logout();
+      // onAuthStateChange SIGNED_OUT handles clearing state + re-renders
       if (typeof renderDashboard === 'function') renderDashboard();
       if (typeof renderReview    === 'function') renderReview();
       if (typeof showToast       === 'function') showToast('Signed out.');
     });
     return;
   }
+
   document.getElementById('authModal').style.display = 'flex';
   switchAuthTab('login');
 }

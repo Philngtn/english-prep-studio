@@ -23,6 +23,11 @@ const CUSTOM_TESTS_KEY          = 'hct_custom_tests';
 /* Writes to localStorage immediately (instant reads) and pushes
    to Supabase in the background so data persists across devices. */
 function _lsSave(lsKey, value) {
+  // Stamp object-typed saves with a write timestamp so syncAll can compare
+  // freshness and avoid overwriting newer local data with stale Supabase data.
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    value._ts = Date.now();
+  }
   localStorage.setItem(lsKey, JSON.stringify(value));
   const dbKeyMap = {
     [ADMIN_DATA_KEY]:           'admin_content',
@@ -134,35 +139,9 @@ let _adminAuth  = false;
 let _adminEmail = '';
 function isAdminLoggedIn() { return _adminAuth; }
 
-async function adminLogin() {
-  const email = ((document.getElementById('adminEmailInput') || {}).value || '').trim();
-  const pwd   = (document.getElementById('adminPwdInput')   || {}).value || '';
-  const err   = document.getElementById('adminLoginErr');
-  if (!email || !pwd) { err.textContent = 'Email and password are required.'; return; }
-  const btn = document.getElementById('adminLoginBtn');
-  if (btn) btn.disabled = true;
-  const error = await db.login(email, pwd);
-  if (btn) btn.disabled = false;
-  if (error) {
-    err.textContent = 'Incorrect email or password.';
-    return;
-  }
-  // Verify the account actually has the admin role
-  const session = await db.getSession();
-  const profile = await db.getProfile(session?.user?.id);
-  if (profile?.role !== 'admin') {
-    await db.logout();
-    err.textContent = 'Access denied. This account does not have admin privileges.';
-    return;
-  }
-  _adminAuth  = true;
-  _adminEmail = session.user.email;
-  renderAdmin();
-}
+// Logout via the admin bar button — onAuthStateChange(SIGNED_OUT) handles the rest
 async function adminLogout() {
   await db.logout();
-  _adminAuth = false;
-  renderAdmin();
 }
 
 /* ── Panel state ──────────────────────────────────────────── */
@@ -193,16 +172,6 @@ async function renderAdmin() {
   _adminRendering = true;  // suppress dirty detection for the whole render cycle
   const container = document.getElementById('adminContent');
   if (!container) { _adminRendering = false; return; }
-  // Show a brief loading state while we check the session + role
-  if (!_adminAuth) {
-    container.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">&#8987; Loading…</div>';
-    const session = await db.getSession();
-    if (session?.user) {
-      const profile = await db.getProfile(session.user.id);
-      _adminAuth  = profile?.role === 'admin';
-      _adminEmail = session.user.email || '';
-    }
-  }
   // Show/hide + sync the persistent global bar
   const globalBar = document.getElementById('adminGlobalBar');
   if (globalBar) {
@@ -215,14 +184,10 @@ async function renderAdmin() {
     }
   }
 
-  container.innerHTML = _adminAuth ? await _buildMain() : _buildLogin();
+  container.innerHTML = _adminAuth ? await _buildMain() : _buildNotLoggedIn();
   // Re-enable dirty detection and capture the clean baseline in a single
   // macrotask so any stray events from the DOM insertion are already past.
   setTimeout(() => { _adminRendering = false; _takeAdminSnapshot(); }, 0);
-  const pwdIn = document.getElementById('adminPwdInput');
-  if (pwdIn) pwdIn.addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
-  const emailIn = document.getElementById('adminEmailInput');
-  if (emailIn) emailIn.addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
   _ensureDirtyListener();
   _updateFloatSave();
 }
@@ -614,9 +579,16 @@ function _adminDoImportSection(replaceAll) {
   const raw = (_val('section-import-ta') || '').trim();
   if (!raw) { showToast('Paste JSON first.'); return; }
   if (_aSec === 'listening') {
-    const ta = document.getElementById(`ls-import-json-${_aListeningPart}`);
-    if (ta) ta.value = raw;
-    adminImportListeningJSON(_aListeningPart, replaceAll);
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch(e) { showToast('Invalid JSON: ' + e.message); return; }
+    // If the JSON has a "sections" array, import all sections at once
+    if (parsed.sections && Array.isArray(parsed.sections) && parsed.sections.length >= 1) {
+      adminImportListeningSection(parsed, replaceAll);
+    } else {
+      const ta = document.getElementById(`ls-import-json-${_aListeningPart}`);
+      if (ta) ta.value = raw;
+      adminImportListeningJSON(_aListeningPart, replaceAll);
+    }
   } else if (_aSec === 'reading') {
     // If the JSON has a top-level "passages" array, import all passages at once
     let parsed;
@@ -754,42 +726,17 @@ function adminConfirmCreateTest(pkgId) {
   showToast(`Test "${name}" created.`);
 }
 
-/* ── Login view ───────────────────────────────────────────── */
-function _buildLogin() {
+/* ── Not-logged-in view ───────────────────────────────────── */
+function _buildNotLoggedIn() {
   return `
   <div class="admin-login-wrap">
-    <div class="admin-login-box">
+    <div class="admin-login-box" style="text-align:center;">
       <img src="../assets/Logo.png" alt="Learn With Trang" class="admin-login-logo">
       <h2>Admin Panel</h2>
-      <p>Sign in with your admin account to manage content</p>
-      <input type="email"    id="adminEmailInput" class="admin-input admin-login-field" placeholder="Email address">
-      <input type="password" id="adminPwdInput"   class="admin-input admin-login-field" placeholder="Password">
-      <p class="admin-err" id="adminLoginErr"></p>
-      <button class="btn btn-primary admin-login-submit" id="adminLoginBtn" onclick="adminLogin()">Sign In</button>
-      <button class="admin-forgot-link" onclick="adminForgotPassword()">Forgot password?</button>
+      <p style="color:var(--text-muted);margin-bottom:1.25rem;">Sign in with your admin account to manage content.</p>
+      <button class="btn btn-primary admin-login-submit" onclick="openAuthModal()">&#128274; Sign In</button>
     </div>
   </div>`;
-}
-
-async function adminForgotPassword() {
-  const email = (_val('adminEmailInput') || '').trim();
-  const errEl = document.getElementById('adminLoginErr');
-  if (!email) {
-    errEl.textContent = 'Enter your email address first.';
-    document.getElementById('adminEmailInput').focus();
-    return;
-  }
-  const btn = document.getElementById('adminLoginBtn');
-  btn.disabled = true;
-  errEl.textContent = '';
-  const err = await db.resetPassword(email);
-  btn.disabled = false;
-  if (err) {
-    errEl.textContent = err.message || 'Could not send reset email.';
-  } else {
-    errEl.style.color = 'var(--primary)';
-    errEl.textContent = '✓ Reset link sent — check your inbox.';
-  }
 }
 
 /* ── Main view ────────────────────────────────────────────── */
@@ -820,7 +767,6 @@ async function _buildMain() {
       </div>
       <div class="admin-editor-topbar">
         <button class="btn btn-sm btn-outline" onclick="adminShowImportSectionModal()">&#8679; Import JSON</button>
-        <button class="btn btn-primary" onclick="adminSaveCurrent()">&#128190; Save Section</button>
       </div>
       <div class="admin-editor" id="adminEditor">
         ${_buildEditor(test)}
@@ -1478,6 +1424,44 @@ function adminImportListeningJSON(si, replaceAll) {
   showToast(`Imported ${flatQs.length} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
 }
 
+/**
+ * Import all 4 sections from a full-test JSON: { "sections": [{...}, ...] }
+ * section_id is 1-based in the JSON; falls back to array position if absent.
+ */
+function adminImportListeningSection(parsed, replaceAll) {
+  const incoming = parsed.sections;
+  if (!incoming || !incoming.length) { showToast('No sections found.'); return; }
+  const data = replaceAll ? null : _collectListeningData();
+  let base;
+  if (replaceAll) {
+    // Build a fresh 4-section skeleton
+    base = { sections: Array.from({ length: 4 }, (_, i) => ({
+      id: `s${i}`, title: '', audioUrl: '', transcript: '', questions: [], groups: [], ranges: []
+    })) };
+  } else {
+    base = data;
+  }
+  let totalQs = 0;
+  incoming.forEach((sec, idx) => {
+    const si = (sec.section_id != null) ? sec.section_id - 1 : idx;
+    if (si < 0 || si > 3) return;  // guard — only 4 parts
+    const flatQs = _lsGroupsToFlat(sec, si);
+    totalQs += flatQs.length;
+    if (replaceAll) {
+      base.sections[si].questions = flatQs;
+    } else {
+      base.sections[si].questions.push(...flatQs);
+    }
+    base.sections[si].groups = sec.groups || [];
+    base.sections[si].ranges = sec.ranges || [];
+    if (sec.title)      base.sections[si].title     = sec.title;
+    if (sec.audio_url)  base.sections[si].audioUrl  = sec.audio_url;
+    if (sec.transcript) base.sections[si].transcript = sec.transcript;
+  });
+  _applyListeningEditorState(base);
+  showToast(`Imported ${incoming.length} section(s), ${totalQs} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
+}
+
 /* ── JSON export ──────────────────────────────────────────────── */
 
 /**
@@ -1825,10 +1809,6 @@ function _buildListeningEditor(data) {
   ).join('');
 
   return `
-    <div class="admin-section-header">
-      <h3>Listening Editor</h3>
-      <button class="btn btn-primary" onclick="adminSaveListening()">&#128190; Save Listening</button>
-    </div>
     <div class="admin-part-tabs">${partTabs}</div>
     ${partsHTML}`;
 }
@@ -2026,7 +2006,7 @@ function adminRemoveListeningQ(si, qi) {
   data.sections[si].questions.splice(qi, 1);
   _applyListeningEditorState(data);
 }
-function adminRefreshListeningQ(si, qi) {
+function adminRefreshListeningQ(_si, _qi) {
   const data = _collectListeningData();
   _applyListeningEditorState(data);
 }
@@ -2034,6 +2014,7 @@ function _applyListeningEditorState(data) {
   const editor = document.getElementById('adminEditor');
   if (!editor) return;
   editor.innerHTML = _buildListeningEditor(data);
+  _adminSetDirty();
 }
 function _collectListeningData() {
   const numParts = 4;
@@ -2159,10 +2140,6 @@ function _buildReadingEditor(data) {
   ).join('');
 
   return `
-    <div class="admin-section-header">
-      <h3>Reading Editor</h3>
-      <button class="btn btn-primary" onclick="adminSaveReading()">&#128190; Save Reading</button>
-    </div>
     ${passagesHTML}
     <button class="btn btn-sm btn-outline" style="margin-top:0.5rem;" onclick="adminAddReadingPassage()">+ Add Passage</button>`;
 }
@@ -2440,8 +2417,8 @@ function adminRemoveReadingPassage(pi) {
 }
 function adminAddReadingQ(pi)         { const d = _collectReadingData(); d.passages[pi].questions.push({ id:`rd_p${pi}_q${Date.now()}`, type:'tfng', text:'', answer:'' }); _applyReadingEditorState(d); }
 function adminRemoveReadingQ(pi, qi)  { if (!confirm('Remove this question?')) return; const d = _collectReadingData(); d.passages[pi].questions.splice(qi,1); _applyReadingEditorState(d); }
-function adminRefreshReadingQ(pi, qi) { _applyReadingEditorState(_collectReadingData()); }
-function _applyReadingEditorState(data) { const e = document.getElementById('adminEditor'); if(e) e.innerHTML = _buildReadingEditor(data); }
+function adminRefreshReadingQ(_pi, _qi) { _applyReadingEditorState(_collectReadingData()); }
+function _applyReadingEditorState(data) { const e = document.getElementById('adminEditor'); if(e) { e.innerHTML = _buildReadingEditor(data); _adminSetDirty(); } }
 
 function _collectReadingData() {
   const passages = [];
@@ -2540,10 +2517,6 @@ function _buildWritingEditor(data) {
   const imgTypeOpts = IMAGE_TYPES.map(t => `<option value="${t}"${t === (t1.imageType||'bar_chart') ? ' selected' : ''}>${t.replace(/_/g,' ')}</option>`).join('');
 
   return `
-    <div class="admin-section-header">
-      <h3>Writing Editor</h3>
-      <button class="btn btn-primary" onclick="adminSaveWriting()">&#128190; Save Writing</button>
-    </div>
     ${wrImportPanel}
 
     <div class="admin-card">
@@ -2680,6 +2653,7 @@ function adminImportWritingJSON() {
     if (t.taskNum === 2) applyTask(t, 'wr-t2');
   });
   showToast(`Writing imported (${tasks.length} task${tasks.length > 1 ? 's' : ''}).`);
+  _adminSetDirty();
 }
 
 /* ==============================================================
@@ -2739,10 +2713,6 @@ function _buildSpeakingEditor(data) {
     </div>`;
 
   return `
-    <div class="admin-section-header">
-      <h3>Speaking Editor</h3>
-      <button class="btn btn-primary" onclick="adminSaveSpeaking()">&#128190; Save Speaking</button>
-    </div>
     ${spImportPanel}
 
     <div class="admin-card">
@@ -2892,7 +2862,8 @@ function _collectSpeakingData() {
   };
 }
 function _applySpeakingEditorState(data) {
-  const e = document.getElementById('adminEditor'); if (e) e.innerHTML = _buildSpeakingEditor(data);
+  const e = document.getElementById('adminEditor');
+  if (e) { e.innerHTML = _buildSpeakingEditor(data); _adminSetDirty(); }
 }
 function adminImportSpeakingJSON() {
   const raw = (document.getElementById('sp-import-json')?.value || '').trim();
