@@ -2,6 +2,17 @@
    IELTS Master - mock-test.css
    ============================================================ */
 
+/* ── Full-width override: mock test tab breaks out of .container ── */
+#tab-mock-test > .container {
+  max-width: 100%;
+  padding: 1.5rem 1.75rem;
+}
+/* Re-centre just the selector page (before test starts) */
+#testSelectorPage {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
 /* ============================================================
    MOCK TEST SELECTOR
    ============================================================ */
@@ -45,10 +56,11 @@
   position: sticky; top: 62px; z-index: 90;
   display: flex; align-items: center; justify-content: space-between;
   background: linear-gradient(135deg, #2d1b2e 0%, #3d1155 100%); color: #fff;
-  padding: 0.75rem 1.5rem; border-radius: var(--radius);
-  margin-bottom: 1.25rem; gap: 1rem;
+  padding: 0.75rem 1.5rem; border-radius: 0;
+  margin: -1.5rem -1.75rem 1.25rem;
+  gap: 1rem;
   box-shadow: 0 4px 16px rgba(74,25,66,0.25);
-  border: 1px solid rgba(244,114,182,0.2);
+  border-bottom: 1px solid rgba(244,114,182,0.2);
 }
 .timer-left { display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; }
 .timer-section-name { font-weight: 700; font-size: 1rem; }
@@ -73,9 +85,9 @@
 /* Question Navigator (bottom) */
 .q-navigator {
   display: flex; flex-wrap: wrap; gap: 0.4rem;
-  background: var(--card-bg); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 0.75rem 1rem;
-  margin-top: 0.75rem;
+  background: var(--card-bg); border: none;
+  border-radius: 0; padding: 0.75rem 1.75rem;
+  margin: 0.75rem -1.75rem -1.5rem;
   position: sticky; bottom: 0; z-index: 80;
   border-top: 2px solid var(--border);
 }
@@ -270,10 +282,11 @@
 .listening-player-bar {
   position: sticky; top: 114px; z-index: 85;
   background: linear-gradient(135deg, #2d1b2e 0%, #3d1155 100%);
-  border: 1.5px solid rgba(244,114,182,0.3);
-  border-radius: var(--radius);
+  border-top: none;
+  border-bottom: 1.5px solid rgba(244,114,182,0.3);
+  border-radius: 0;
   padding: 0.75rem 1.25rem;
-  margin-bottom: 1rem;
+  margin: 0 -1.75rem 1rem;
   display: flex; flex-direction: column; gap: 0.5rem;
   box-shadow: 0 4px 20px rgba(74,25,66,0.25);
 }
