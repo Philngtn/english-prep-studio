@@ -484,7 +484,7 @@ function renderCurrentQuestion() {
 
     if (sectionChanged) {
       _lastSectionId = section.id;   // update question-display cache
-      const sectionQs = sectionQsForAudio;
+      const sectionQs = qs.filter(fq => fq.sectionId === q.sectionId);
       const firstQIdx = qs.findIndex(fq => fq.sectionId === q.sectionId);
 
       // Transcript (collapsed by default on section change, hidden in countdown)
