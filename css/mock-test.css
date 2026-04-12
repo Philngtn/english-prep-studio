@@ -699,10 +699,7 @@ iframe.listening-audio-player { height: 80px; }
 
 /* ── Audio active question highlight ────────────────────────── */
 .question-block.ls-active-question {
-  outline: 2px solid var(--primary);
-  border-radius: var(--radius, 8px);
-  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.10);
-  transition: outline 0.2s, box-shadow 0.2s;
+  /* highlight intentionally removed */
 }
 
 /* ── No image placeholder ────────────────────────────────────── */

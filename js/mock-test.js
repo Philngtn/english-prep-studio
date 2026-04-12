@@ -3,6 +3,7 @@
 let _lastPassageId    = null;
 let _lastSectionId    = null;
 let _transcriptExpanded = false;
+let _audioFinishedSections = new Set();   // section ids whose audio has reached 'ended'
 
 /* ============================================================
    ===== TEST SECTION START =====
@@ -24,6 +25,7 @@ function startTestSection(section) {
   }
 
   switchTab('mock-test');
+  _audioFinishedSections = new Set();
   appState.test = {
     active: true,
     section,
@@ -302,6 +304,19 @@ function navigateQuestion(dir) {
     const nextSectionIdx = sectionIdx + dir;
     if (nextSectionIdx >= sections.length) { confirmSubmit(); return; }
     if (nextSectionIdx < 0) return;
+
+    // Countdown mode: block moving forward until current section's audio has ended
+    if (dir > 0 && appState.timerCountdown) {
+      const currentSectionId = q.sectionId;
+      const audioEl = document.querySelector('#lpbPlayer audio');
+      const audioEnded = _audioFinishedSections.has(currentSectionId)
+        || (audioEl && audioEl.ended);
+      if (!audioEnded) {
+        showToast('Please wait for the audio to finish before moving to the next part.');
+        return;
+      }
+    }
+
     const nextSection = sections[nextSectionIdx];
     const nextQIdx = qs.findIndex(fq => fq.sectionId === nextSection.id);
     if (nextQIdx !== -1) appState.test.currentQ = nextQIdx;
@@ -466,14 +481,26 @@ function renderCurrentQuestion() {
       const sectionQs = qs.filter(fq => fq.sectionId === q.sectionId);
       const firstQIdx = qs.findIndex(fq => fq.sectionId === q.sectionId);
 
-      // Seek audio to start of first question in section
-      const firstStart = sectionQs[0] && sectionQs[0].questionStart;
-      if (firstStart != null && firstStart >= 0) {
+      // In countdown mode: always start from 0 and track when section audio ends.
+      // In practice mode: seek to the first question's audio timestamp.
+      if (!appState.timerCountdown) {
+        const firstStart = sectionQs[0] && sectionQs[0].questionStart;
+        if (firstStart != null && firstStart >= 0) {
+          const audioEl = document.querySelector('#lpbPlayer audio');
+          if (audioEl) {
+            const doSeek = () => { audioEl.currentTime = firstStart; };
+            if (audioEl.readyState >= 1) doSeek();
+            else audioEl.addEventListener('loadedmetadata', doSeek, { once: true });
+          }
+        }
+      } else {
+        // Countdown mode: mark section done when its audio finishes
+        const sectionId = section && section.id;
         const audioEl = document.querySelector('#lpbPlayer audio');
-        if (audioEl) {
-          const doSeek = () => { audioEl.currentTime = firstStart; };
-          if (audioEl.readyState >= 1) doSeek();
-          else audioEl.addEventListener('loadedmetadata', doSeek, { once: true });
+        if (audioEl && sectionId) {
+          audioEl.addEventListener('ended', () => {
+            _audioFinishedSections.add(sectionId);
+          }, { once: true });
         }
       }
 
