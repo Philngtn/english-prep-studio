@@ -225,7 +225,7 @@ const db = {
   async getAllStudents() {
     const { data, error } = await _sb.from('profiles')
       .select('*').eq('role', 'student')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }).limit(500);
     if (error) console.warn('[DB] getAllStudents failed:', error.message);
     return data || [];
   },

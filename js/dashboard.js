@@ -1,17 +1,7 @@
 'use strict';
 
 function confirmResetAllData() {
-  showModal(
-    'Reset All Data?',
-    'This will permanently delete all your test history and progress. This cannot be undone.',
-    () => {
-      localStorage.removeItem('ielts_history');
-      db.clearHistory().catch(e => console.warn('[DB] clearHistory failed:', e));
-      closeModal();
-      renderDashboard();
-      showToast('All data has been reset.');
-    }
-  );
+  confirmClearHistory(() => { renderDashboard(); showToast('All data has been reset.'); });
 }
 
 /* ============================================================

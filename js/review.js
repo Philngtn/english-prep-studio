@@ -4,12 +4,7 @@
    ===== LOCAL STORAGE - CLEAR =====
    ============================================================ */
 function clearAllHistory() {
-  if (!confirm('Delete all test history? This cannot be undone.')) return;
-  localStorage.removeItem('ielts_history');
-  db.clearHistory().catch(e => console.warn('[DB] clearHistory failed:', e));
-  renderReview();
-  renderDashboard();
-  showToast('All history cleared.');
+  confirmClearHistory(() => { renderReview(); renderDashboard(); showToast('All history cleared.'); });
 }
 
 /* ============================================================

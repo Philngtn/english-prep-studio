@@ -5,9 +5,7 @@
    ============================================================ */
 
 /* ── Utilities ────────────────────────────────────────────── */
-function lsEsc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+/* lsEsc removed — use shared escHtml() */
 
 function lsJumpBtn(questionStart) {
   // Hide in countdown (exam) mode — seeking gives an unfair advantage
@@ -22,12 +20,12 @@ function lsJumpBtn(questionStart) {
 
 function lsAnswerRule(rule) {
   if (!rule) return '';
-  return `<div class="ls-answer-rule">Write ${lsEsc(rule)}</div>`;
+  return `<div class="ls-answer-rule">Write ${escHtml(rule)}</div>`;
 }
 
 function lsInstruction(text) {
   if (!text) return '';
-  return `<div class="ls-instruction">${lsEsc(text)}</div>`;
+  return `<div class="ls-instruction">${escHtml(text)}</div>`;
 }
 
 /* ── Group-level router ───────────────────────────────────── */
@@ -72,24 +70,24 @@ function lsRenderMapGroup(peers, rangeLabel) {
     const label = p.text || String.fromCharCode(65 + i);
     const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-map-pin" style="left:${p.xPct || 0}%;top:${p.yPct || 0}%">
-      <div class="ls-map-letter">${lsEsc(label)}</div>
-      <input type="text" class="ls-map-input" value="${lsEsc(saved)}"
+      <div class="ls-map-letter">${escHtml(label)}</div>
+      <input type="text" class="ls-map-input" value="${escHtml(saved)}"
              data-qid="${p.id}"
-             oninput="saveAnswer('${p.id}',this.value)" placeholder="${lsEsc(label)}">
+             oninput="saveAnswer('${p.id}',this.value)" placeholder="${escHtml(label)}">
     </div>`;
   }).join('');
 
   const promptsHtml = peers.map((p, i) => {
     const label = p.text || String.fromCharCode(65 + i);
-    return `<div class="ls-map-prompt"><strong>${lsEsc(label)}.</strong> ${lsJumpBtn(p.questionStart)}</div>`;
+    return `<div class="ls-map-prompt"><strong>${escHtml(label)}.</strong> ${lsJumpBtn(p.questionStart)}</div>`;
   }).join('');
 
-  return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
     ${imgUrl
-      ? `<div class="ls-map-wrap"><img src="${lsEsc(imgUrl)}" class="ls-map-img" alt="Map/Diagram"><div class="ls-map-overlay">${pinsHtml}</div></div>`
+      ? `<div class="ls-map-wrap"><img src="${escHtml(imgUrl)}" class="ls-map-img" alt="Map/Diagram"><div class="ls-map-overlay">${pinsHtml}</div></div>`
       : '<p class="ls-no-image">No image set.</p>'}
     <div class="ls-map-prompts">${promptsHtml}</div>
   </div>`;
@@ -107,14 +105,14 @@ function lsRenderFlowGroup(peers, rangeLabel) {
     return `<div class="ls-flow-step">
       ${p.nodeNum ? `<div class="ls-flow-node">${p.nodeNum}</div>` : ''}
       <div class="ls-flow-content">
-        ${lsEsc(pre)}<input type="text" class="ls-flow-input" value="${lsEsc(saved)}"
+        ${escHtml(pre)}<input type="text" class="ls-flow-input" value="${escHtml(saved)}"
           data-qid="${p.id}"
-          oninput="saveAnswer('${p.id}',this.value)" placeholder="...">${lsEsc(suf)} ${lsJumpBtn(p.questionStart)}
+          oninput="saveAnswer('${p.id}',this.value)" placeholder="...">${escHtml(suf)} ${lsJumpBtn(p.questionStart)}
       </div>
     </div>`;
   }).join('<div class="ls-flow-arrow">&#8595;</div>');
 
-  return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
@@ -135,20 +133,20 @@ function lsRenderTableGroup(peers, rangeLabel) {
   const cellMap = {};
   peers.forEach(p => { cellMap[`${p.rowContext}||${p.colContext}`] = p; });
 
-  const headerHtml = `<tr><th></th>${colKeys.map(c => `<th>${lsEsc(c)}</th>`).join('')}</tr>`;
+  const headerHtml = `<tr><th></th>${colKeys.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr>`;
   const bodyHtml = rowKeys.map(row => `<tr>
-    <td class="ls-table-row-label">${lsEsc(row)}</td>
+    <td class="ls-table-row-label">${escHtml(row)}</td>
     ${colKeys.map(col => {
       const p = cellMap[`${row}||${col}`];
       if (!p) return '<td></td>';
       const saved = appState.test.answers[p.id] || '';
-      return `<td><input type="text" class="ls-table-cell-input" value="${lsEsc(saved)}"
+      return `<td><input type="text" class="ls-table-cell-input" value="${escHtml(saved)}"
         data-qid="${p.id}"
         oninput="saveAnswer('${p.id}',this.value)">${p.questionStart != null ? lsJumpBtn(p.questionStart) : ''}</td>`;
     }).join('')}
   </tr>`).join('');
 
-  return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
@@ -167,14 +165,14 @@ function lsRenderFormGroup(peers, rangeLabel) {
   const fieldsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-form-field">
-      <label class="ls-form-label">${lsEsc(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
-      <input type="text" class="ls-form-input" value="${lsEsc(saved)}"
+      <label class="ls-form-label">${escHtml(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
+      <input type="text" class="ls-form-input" value="${escHtml(saved)}"
         data-qid="${p.id}"
         oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
     </div>`;
   }).join('');
 
-  return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
@@ -194,14 +192,14 @@ function lsRenderNoteGroup(peers, rangeLabel) {
     peers.forEach(p => { blankMap[p.qNum] = p; });
 
     const blocksHtml = peers[0].noteBlocks.map(block => {
-      if (block.type === 'heading')    return `<div class="ls-nc-heading">${lsEsc(block.text || '')}</div>`;
-      if (block.type === 'subheading') return `<div class="ls-nc-subheading">${lsEsc(block.text || '')}</div>`;
+      if (block.type === 'heading')    return `<div class="ls-nc-heading">${escHtml(block.text || '')}</div>`;
+      if (block.type === 'subheading') return `<div class="ls-nc-subheading">${escHtml(block.text || '')}</div>`;
       const prefix = block.type === 'bullet_line' ? '<span class="ls-nc-bullet">–</span>' : '';
       const innerHtml = _lsNcRenderTokens(block.tokens, block.text, blankMap);
       return `<div class="ls-nc-line">${prefix}${innerHtml}</div>`;
     }).join('');
 
-    return `<div class="question-block ls-nc-block" data-group="${lsEsc(peers[0].groupId || '')}">
+    return `<div class="question-block ls-nc-block" data-group="${escHtml(peers[0].groupId || '')}">
       <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
       ${lsAnswerRule(answerRule)}
       <div class="ls-nc-document">${blocksHtml}</div>
@@ -224,13 +222,13 @@ function lsRenderNoteGroup(peers, rangeLabel) {
     const sectionsHtml = sections.map(sec => {
       const linesHtml = sec.lines.map(p => {
         const saved      = appState.test.answers[p.id] || '';
-        const beforeHtml = p.before ? `<span class="ls-note-before">${lsEsc(p.before)}</span>` : '';
-        const afterHtml  = p.after  ? `<span class="ls-note-after">${lsEsc(p.after)}</span>`   : '';
+        const beforeHtml = p.before ? `<span class="ls-note-before">${escHtml(p.before)}</span>` : '';
+        const afterHtml  = p.after  ? `<span class="ls-note-after">${escHtml(p.after)}</span>`   : '';
         return `<div class="ls-note-inline-line">
           ${beforeHtml}
           <span class="ls-token-blank-wrap">
             <span class="ls-token-blank-num">${p.qNum}</span>
-            <input type="text" class="ls-token-blank-input" value="${lsEsc(saved)}"
+            <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
               data-qid="${p.id}" oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
           </span>
           ${afterHtml}
@@ -238,15 +236,15 @@ function lsRenderNoteGroup(peers, rangeLabel) {
         </div>`;
       }).join('');
       const headingHtml = sec.heading
-        ? `<div class="ls-note-section-heading">${lsEsc(sec.heading)}</div>` : '';
+        ? `<div class="ls-note-section-heading">${escHtml(sec.heading)}</div>` : '';
       return `${headingHtml}<div class="ls-note-section-lines">${linesHtml}</div>`;
     }).join('');
 
-    return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+    return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
       <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
       ${lsInstruction(instruction)}
       ${lsAnswerRule(answerRule)}
-      ${groupTitle ? `<div class="ls-note-title">${lsEsc(groupTitle)}</div>` : ''}
+      ${groupTitle ? `<div class="ls-note-title">${escHtml(groupTitle)}</div>` : ''}
       <div class="ls-note-group-inline">${sectionsHtml}</div>
     </div>`;
   }
@@ -255,15 +253,15 @@ function lsRenderNoteGroup(peers, rangeLabel) {
   const linesHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-note-line">
-      <span class="ls-note-label">${lsEsc(p.text || `Q${p.qNum}`)}:</span>
-      <input type="text" class="ls-note-input" value="${lsEsc(saved)}"
+      <span class="ls-note-label">${escHtml(p.text || `Q${p.qNum}`)}:</span>
+      <input type="text" class="ls-note-input" value="${escHtml(saved)}"
         data-qid="${p.id}"
         oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
       ${lsJumpBtn(p.questionStart)}
     </div>`;
   }).join('');
 
-  return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
@@ -272,16 +270,16 @@ function lsRenderNoteGroup(peers, rangeLabel) {
 }
 
 function _lsNcRenderTokens(tokens, plainText, blankMap) {
-  if (!tokens || !tokens.length) return `<span class="ls-nc-text">${lsEsc(plainText || '')}</span>`;
+  if (!tokens || !tokens.length) return `<span class="ls-nc-text">${escHtml(plainText || '')}</span>`;
   return tokens.map(tok => {
-    if (tok.type === 'text') return `<span class="ls-nc-text">${lsEsc(tok.value || '')}</span>`;
+    if (tok.type === 'text') return `<span class="ls-nc-text">${escHtml(tok.value || '')}</span>`;
     if (tok.type === 'blank') {
       const peer = blankMap[tok.id];
       if (!peer) return '';
       const saved = appState.test.answers[peer.id] || '';
       return `<span class="ls-token-blank-wrap">
         <span class="ls-token-blank-num">${peer.qNum}</span>
-        <input type="text" class="ls-token-blank-input" value="${lsEsc(saved)}"
+        <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
           data-qid="${peer.id}" oninput="saveAnswer('${peer.id}',this.value)" placeholder="...">
       </span>${lsJumpBtn(peer.questionStart)}`;
     }
@@ -302,14 +300,14 @@ function lsRenderSentenceGroup(peers, rangeLabel) {
     // Token-based rendering if tokens array exists
     if (p.tokens && p.tokens.length) {
       const tokHtml = p.tokens.map(tok => {
-        if (tok.type === 'text') return `<span class="ls-token-text">${lsEsc(tok.value)}</span>`;
+        if (tok.type === 'text') return `<span class="ls-token-text">${escHtml(tok.value)}</span>`;
         if (tok.type === 'blank') {
           // Find the peer whose qNum matches the blank id
           const peer = blankMap[tok.id] || p;
           const saved = appState.test.answers[peer.id] || '';
           return `<span class="ls-token-blank-wrap">
             <span class="ls-token-blank-num">${peer.qNum}</span>
-            <input type="text" class="ls-token-blank-input" value="${lsEsc(saved)}"
+            <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
               data-qid="${peer.id}"
               oninput="saveAnswer('${peer.id}',this.value)" placeholder="...">
           </span>`;
@@ -321,14 +319,14 @@ function lsRenderSentenceGroup(peers, rangeLabel) {
     // Fallback: plain label + input
     const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-form-field">
-      <label class="ls-form-label">${lsEsc(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
-      <input type="text" class="ls-form-input" value="${lsEsc(saved)}"
+      <label class="ls-form-label">${escHtml(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
+      <input type="text" class="ls-form-input" value="${escHtml(saved)}"
         data-qid="${p.id}"
         oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
     </div>`;
   }).join('');
 
-  return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
@@ -358,13 +356,13 @@ function lsRenderSummaryGroup(peers, rangeLabel) {
       }
     });
     bodyHtml = '<div class="ls-sentence-tokens">' + allTokens.map(tok => {
-      if (tok.type === 'text') return `<span class="ls-token-text">${lsEsc(tok.value)}</span>`;
+      if (tok.type === 'text') return `<span class="ls-token-text">${escHtml(tok.value)}</span>`;
       if (tok.type === 'blank') {
         const peer = blankMap[tok.id] || peers[0];
         const saved = appState.test.answers[peer.id] || '';
         return `<span class="ls-token-blank-wrap">
           <span class="ls-token-blank-num">${peer.qNum}</span>
-          <input type="text" class="ls-token-blank-input" value="${lsEsc(saved)}"
+          <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
             data-qid="${peer.id}"
             oninput="saveAnswer('${peer.id}',this.value)" placeholder="...">
         </span>`;
@@ -376,15 +374,15 @@ function lsRenderSummaryGroup(peers, rangeLabel) {
     bodyHtml = '<div class="ls-form-group">' + peers.map(p => {
       const saved = appState.test.answers[p.id] || '';
       return `<div class="ls-form-field">
-        <label class="ls-form-label">${lsEsc(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
-        <input type="text" class="ls-form-input" value="${lsEsc(saved)}"
+        <label class="ls-form-label">${escHtml(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
+        <input type="text" class="ls-form-input" value="${escHtml(saved)}"
           data-qid="${p.id}"
           oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
       </div>`;
     }).join('') + '</div>';
   }
 
-  return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
@@ -402,21 +400,21 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
 
   // Main question text (e.g. "Which event in the history of football...")
   const questionHtml = matchQuestion
-    ? `<div class="ls-matching-question">${lsEsc(matchQuestion)}</div>` : '';
+    ? `<div class="ls-matching-question">${escHtml(matchQuestion)}</div>` : '';
 
   // Instruction line (e.g. "Choose SIX answers from the box...")
   const instructionHtml = instruction
-    ? `<div class="ls-matching-instruction">${lsEsc(instruction).replace(/\n/g,'<br>')}</div>` : '';
+    ? `<div class="ls-matching-instruction">${escHtml(instruction).replace(/\n/g,'<br>')}</div>` : '';
 
   // Options reference panel: bold letter + description, no period
   const optionsHtml = options.length ? `
     <div class="ls-matching-options">
-      ${optionsHeading ? `<div class="ls-matching-options-heading">${lsEsc(optionsHeading)}</div>` : ''}
+      ${optionsHeading ? `<div class="ls-matching-options-heading">${escHtml(optionsHeading)}</div>` : ''}
       ${options.map(opt => {
         const m = String(opt).match(/^([A-Za-z]+)[.\s]+(.+)$/);
         return m
-          ? `<div class="ls-matching-option"><span class="ls-match-letter">${lsEsc(m[1])}</span>${lsEsc(m[2])}</div>`
-          : `<div class="ls-matching-option">${lsEsc(opt)}</div>`;
+          ? `<div class="ls-matching-option"><span class="ls-match-letter">${escHtml(m[1])}</span>${escHtml(m[2])}</div>`
+          : `<div class="ls-matching-option">${escHtml(opt)}</div>`;
       }).join('')}
     </div>` : '';
 
@@ -426,7 +424,7 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
       ...options.map(opt => {
         const letter = String(opt).match(/^([A-Za-z]+)/)?.[1] || '';
         const sel    = letter && letter.toUpperCase() === saved.toUpperCase() ? ' selected' : '';
-        return `<option value="${lsEsc(letter)}"${sel}>${lsEsc(letter)}</option>`;
+        return `<option value="${escHtml(letter)}"${sel}>${escHtml(letter)}</option>`;
       })
     ].join('');
     return ddOpts;
@@ -437,19 +435,19 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
     const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-matching-row">
       <span class="ls-match-qnum">${p.qNum}</span>
-      <span class="ls-match-label">${lsEsc(p.text || '')}</span>
+      <span class="ls-match-label">${escHtml(p.text || '')}</span>
       <select class="ls-matching-select" data-qid="${p.id}"
         onchange="saveAnswer('${p.id}',this.value)">${buildDd(saved)}</select>
       ${lsJumpBtn(p.questionStart)}
     </div>`;
   }).join('');
 
-  return `<div class="question-block ls-matching-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block ls-matching-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsJumpBtn(peers[0].questionStart)}
     ${questionHtml}
     ${instructionHtml}
-    ${answerRule ? `<div class="ls-answer-rule">Write ${lsEsc(answerRule)}</div>` : ''}
+    ${answerRule ? `<div class="ls-answer-rule">Write ${escHtml(answerRule)}</div>` : ''}
     ${optionsHtml}
     <div class="ls-matching-questions">${questionsHtml}</div>
   </div>`;
@@ -464,15 +462,15 @@ function lsRenderGenericGroup(peers, rangeLabel) {
     const saved = appState.test.answers[p.id] || '';
     return `<div style="margin-bottom:0.75rem;">
       ${p.text
-        ? `<div class="question-text" style="margin-bottom:0.35rem;">${lsEsc(p.text)} ${lsJumpBtn(p.questionStart)}</div>`
+        ? `<div class="question-text" style="margin-bottom:0.35rem;">${escHtml(p.text)} ${lsJumpBtn(p.questionStart)}</div>`
         : lsJumpBtn(p.questionStart)}
-      <input type="text" class="answer-input" value="${lsEsc(saved)}"
+      <input type="text" class="answer-input" value="${escHtml(saved)}"
         data-qid="${p.id}"
         oninput="saveAnswer('${p.id}',this.value)" placeholder="Answer...">
     </div>`;
   }).join('');
 
-  return `<div class="question-block" data-group="${lsEsc(peers[0].groupId || '')}">
+  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
@@ -490,7 +488,7 @@ function lsFallback(q, idx) {
     ${q.instruction ? lsInstruction(q.instruction) : ''}
     <div class="question-text">${q.text || ''}</div>
     <input type="text" class="answer-input" placeholder="Type your answer..."
-      value="${lsEsc(saved)}" data-qid="${q.id}"
+      value="${escHtml(saved)}" data-qid="${q.id}"
       oninput="saveAnswer('${q.id}',this.value)">
   </div>`;
 }

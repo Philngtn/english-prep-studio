@@ -173,6 +173,16 @@ function stopTimer() {
 /* ============================================================
    ===== QUESTION NAVIGATOR =====
    ============================================================ */
+
+/** Build the CSS class string for a question navigator button. */
+function _qNavBtnCls(i, q, isAnswered) {
+  let cls = 'q-nav-btn';
+  if (i === appState.test.currentQ)   cls += ' current';
+  if (appState.test.flags.has(q.id))  cls += ' flagged';
+  else if (isAnswered)                cls += ' answered';
+  return cls;
+}
+
 function renderQNavigator() {
   const container = document.getElementById('qNavigator');
   const qs = appState.test.flatQuestions;
@@ -198,13 +208,7 @@ function renderQNavigator() {
         lastPassageId = q.passageId;
       }
       const answered = appState.test.answers[q.id] !== undefined;
-      const flagged  = appState.test.flags.has(q.id);
-      const current  = i === appState.test.currentQ;
-      let cls = 'q-nav-btn';
-      if (current)  cls += ' current';
-      if (flagged)  cls += ' flagged';
-      else if (answered) cls += ' answered';
-      html += `<button class="${cls}" onclick="jumpToQuestion(${i})">${i + 1}</button>`;
+      html += `<button class="${_qNavBtnCls(i, q, answered)}" onclick="jumpToQuestion(${i})">${i + 1}</button>`;
     });
     container.innerHTML = html;
     const currentQ = qs[appState.test.currentQ];
@@ -227,13 +231,8 @@ function renderQNavigator() {
       const answered = q.type === 'multi'
         ? (appState.test.answers[q.id] || '').split(',').filter(Boolean).length >= q.count
         : appState.test.answers[q.id] !== undefined;
-      const flagged  = appState.test.flags.has(q.id);
-      const current  = i === appState.test.currentQ;
-      let cls = 'q-nav-btn';
-      if (current)  cls += ' current';
-      if (flagged)  cls += ' flagged';
-      else if (answered) cls += ' answered';
       const label = q.qNum != null ? q.qNum : i + 1;
+      let cls = _qNavBtnCls(i, q, answered);
       if (String(label).includes('&')) cls += ' wide';
       html += `<button class="${cls}" onclick="jumpToQuestion(${i})">${label}</button>`;
     });
@@ -248,13 +247,8 @@ function renderQNavigator() {
   } else {
     container.innerHTML = qs.map((q, i) => {
       const answered = appState.test.answers[q.id] !== undefined;
-      const flagged  = appState.test.flags.has(q.id);
-      const current  = i === appState.test.currentQ;
-      let cls = 'q-nav-btn';
-      if (current)  cls += ' current';
-      if (flagged)  cls += ' flagged';
-      else if (answered) cls += ' answered';
       const label = q.qNum != null ? q.qNum : i + 1;
+      let cls = _qNavBtnCls(i, q, answered);
       if (String(label).includes('&')) cls += ' wide';
       return `<button class="${cls}" onclick="jumpToQuestion(${i})">${label}</button>`;
     }).join('');
@@ -749,9 +743,7 @@ function _buildAudioPlayer(url) {
 /* ============================================================
    ===== READING QUESTION RENDERERS =====
    ============================================================ */
-function _rdEsc(s) {
-  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+/* _rdEsc removed — use shared escHtml() */
 
 /* Build the HTML for all questions in a passage, grouping by groupId */
 function _rdRenderQuestionsPane(passageQs, firstIdx) {
@@ -778,7 +770,7 @@ function _rdRenderQuestion(q, idx) {
   const qLabel  = q.qNum != null ? q.qNum : idx + 1;
   const qPrefix = String(qLabel).includes('&') ? 'Questions' : 'Question';
   const answerRule = q.answerRule
-    ? `<div class="rd-answer-rule">${_rdEsc(q.answerRule)}</div>` : '';
+    ? `<div class="rd-answer-rule">${escHtml(q.answerRule)}</div>` : '';
   let body = '';
 
   if (q.type === 'tfng' || q.type === 'ynng') {
@@ -840,8 +832,8 @@ function _rdRenderQuestion(q, idx) {
           const val = appState.test.answers[tok.id] || '';
           return `<span class="rd-blank-wrap">
             <span class="rd-blank-num">${tok.id}</span>
-            <input type="text" class="rd-blank-input" data-qid="${_rdEsc(tok.id)}"
-              value="${_rdEsc(val)}" autocomplete="off" spellcheck="false"
+            <input type="text" class="rd-blank-input" data-qid="${escHtml(tok.id)}"
+              value="${escHtml(val)}" autocomplete="off" spellcheck="false"
               aria-label="Blank ${tok.id}" placeholder="(${tok.id})">
           </span>`;
         }
@@ -852,7 +844,7 @@ function _rdRenderQuestion(q, idx) {
   } else {
     /* short / sentence_completion / summary_completion / note_completion / form_completion */
     body = `${answerRule}<input type="text" class="answer-input" data-qid="${q.id}"
-      placeholder="Type your answer…" value="${_rdEsc(saved||'')}"
+      placeholder="Type your answer…" value="${escHtml(saved||'')}"
       autocomplete="off" spellcheck="false" aria-label="Question ${qLabel} answer">`;
   }
 
@@ -894,22 +886,22 @@ function _rdRenderGroupBlock(peers) {
 function _rdRenderMatchingGroup(peers, rangeLabel) {
   const opts           = (peers[0] && peers[0].options) || [];
   const answerRule     = peers[0].answerRule
-    ? `<div class="rd-answer-rule">${_rdEsc(peers[0].answerRule)}</div>` : '';
+    ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
   const optionsHeading = (peers[0] && peers[0].optionsHeading) || '';
   const instruction    = (peers[0] && peers[0].instruction)    || '';
 
   const instructionHtml = instruction
-    ? `<div class="ls-matching-instruction">${_rdEsc(instruction).replace(/\n/g,'<br>')}</div>` : '';
+    ? `<div class="ls-matching-instruction">${escHtml(instruction).replace(/\n/g,'<br>')}</div>` : '';
 
   // Options reference list (shown once at top)
   const optionsHtml = opts.length ? `
     <div class="ls-matching-options">
-      ${optionsHeading ? `<div class="ls-matching-options-heading">${_rdEsc(optionsHeading)}</div>` : ''}
+      ${optionsHeading ? `<div class="ls-matching-options-heading">${escHtml(optionsHeading)}</div>` : ''}
       ${opts.map(opt => {
         const m = String(opt).match(/^([A-Za-z]+)[.\s]+(.+)$/);
         return m
-          ? `<div class="ls-matching-option"><span class="ls-match-letter">${_rdEsc(m[1])}</span>${_rdEsc(m[2])}</div>`
-          : `<div class="ls-matching-option">${_rdEsc(opt)}</div>`;
+          ? `<div class="ls-matching-option"><span class="ls-match-letter">${escHtml(m[1])}</span>${escHtml(m[2])}</div>`
+          : `<div class="ls-matching-option">${escHtml(opt)}</div>`;
       }).join('')}
     </div>` : '';
 
@@ -918,7 +910,7 @@ function _rdRenderMatchingGroup(peers, rangeLabel) {
     ...opts.map(opt => {
       const letter = String(opt).match(/^([A-Za-z]+)/)?.[1] || '';
       const sel    = letter && letter.toUpperCase() === saved.toUpperCase() ? ' selected' : '';
-      return `<option value="${_rdEsc(letter)}"${sel}>${_rdEsc(letter)}</option>`;
+      return `<option value="${escHtml(letter)}"${sel}>${escHtml(letter)}</option>`;
     })
   ].join('');
 
@@ -926,9 +918,9 @@ function _rdRenderMatchingGroup(peers, rangeLabel) {
   const questionsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
     return `<div class="ls-matching-row">
-      <span class="ls-match-qnum">${_rdEsc(String(p.qNum || p.id))}</span>
-      <span class="ls-match-label">${_rdEsc(p.text || '')}</span>
-      <select class="ls-matching-select" data-qid="${_rdEsc(String(p.id))}">${buildDd(saved)}</select>
+      <span class="ls-match-qnum">${escHtml(String(p.qNum || p.id))}</span>
+      <span class="ls-match-label">${escHtml(p.text || '')}</span>
+      <select class="ls-matching-select" data-qid="${escHtml(String(p.id))}">${buildDd(saved)}</select>
     </div>`;
   }).join('');
 
@@ -944,14 +936,14 @@ function _rdRenderMatchingGroup(peers, rangeLabel) {
 function _rdRenderDiagram(peers, rangeLabel) {
   const imgUrl     = (peers[0] && peers[0].groupImage) || '';
   const answerRule = peers[0].answerRule
-    ? `<div class="rd-answer-rule">${_rdEsc(peers[0].answerRule)}</div>` : '';
+    ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
   const pinsHtml   = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
     return `<div class="rd-diagram-blank" style="left:${p.xPct||0}%;top:${p.yPct||0}%">
       <span class="rd-diagram-label">${p.qNum || p.id}</span>
       <input type="text" class="rd-diagram-input" data-qid="${p.id}"
-        value="${_rdEsc(saved)}" autocomplete="off" spellcheck="false"
-        aria-label="Blank ${p.qNum || p.id}: ${_rdEsc(p.text||'')}">
+        value="${escHtml(saved)}" autocomplete="off" spellcheck="false"
+        aria-label="Blank ${p.qNum || p.id}: ${escHtml(p.text||'')}">
     </div>`;
   }).join('');
   const promptsHtml = peers.map(p =>
@@ -961,7 +953,7 @@ function _rdRenderDiagram(peers, rangeLabel) {
     <div class="question-number">${rangeLabel}</div>
     ${answerRule}
     ${imgUrl
-      ? `<div class="rd-image-wrap"><img src="${_rdEsc(imgUrl)}" class="rd-diagram-img" alt="Diagram" draggable="false">${pinsHtml}</div>`
+      ? `<div class="rd-image-wrap"><img src="${escHtml(imgUrl)}" class="rd-diagram-img" alt="Diagram" draggable="false">${pinsHtml}</div>`
       : '<div class="rd-no-image">No diagram image provided.</div>'}
     ${promptsHtml ? `<div class="rd-diagram-prompts">${promptsHtml}</div>` : ''}
   </div>`;
@@ -976,16 +968,16 @@ function _rdRenderTable(peers, rangeLabel) {
   const cellMap = {};
   peers.forEach(p => { cellMap[`${p.rowContext}||${p.colContext}`] = p; });
   const answerRule = peers[0].answerRule
-    ? `<div class="rd-answer-rule">${_rdEsc(peers[0].answerRule)}</div>` : '';
-  const headerHtml = `<tr><th></th>${colKeys.map(c => `<th>${_rdEsc(c)}</th>`).join('')}</tr>`;
+    ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
+  const headerHtml = `<tr><th></th>${colKeys.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr>`;
   const bodyHtml   = rowKeys.map(row => `<tr>
-    <td class="rd-table-row-label">${_rdEsc(row)}</td>
+    <td class="rd-table-row-label">${escHtml(row)}</td>
     ${colKeys.map(col => {
       const p = cellMap[`${row}||${col}`];
       if (!p) return '<td></td>';
       const saved = appState.test.answers[p.id] || '';
       return `<td><input type="text" class="rd-table-input" data-qid="${p.id}"
-        value="${_rdEsc(saved)}" autocomplete="off" spellcheck="false"
+        value="${escHtml(saved)}" autocomplete="off" spellcheck="false"
         aria-label="Blank ${p.qNum || p.id}" placeholder="(${p.qNum || p.id})"></td>`;
     }).join('')}
   </tr>`).join('');
@@ -1005,7 +997,7 @@ function _rdRenderFormList(peers, rangeLabel) {
       <span class="rd-form-num">${p.qNum || p.id}.</span>
       <span class="rd-form-label">${p.text || ''}</span>
       <input type="text" class="rd-form-input answer-input" data-qid="${p.id}"
-        value="${_rdEsc(saved)}" autocomplete="off" spellcheck="false"
+        value="${escHtml(saved)}" autocomplete="off" spellcheck="false"
         aria-label="Blank ${p.qNum || p.id}" placeholder="…">
     </div>`;
   }).join('');

@@ -247,6 +247,29 @@ function capitalize(str) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
 }
 
+/** Escape a value for safe insertion into HTML attribute or text content. */
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Show a confirmation modal then wipe all test history (localStorage + Supabase).
+ * onCleared() is called after the data is removed so callers can re-render.
+ */
+function confirmClearHistory(onCleared) {
+  showModal(
+    'Clear All History?',
+    'This will permanently delete all your test history and progress. This cannot be undone.',
+    () => {
+      localStorage.removeItem('ielts_history');
+      db.clearHistory().catch(e => console.warn('[DB] clearHistory failed:', e));
+      onCleared();
+    }
+  );
+}
+
 /* ============================================================
    ===== TEST PACKAGES =====
    Populated at startup by loadCustomTestPackages() + loadAdminOverrides().

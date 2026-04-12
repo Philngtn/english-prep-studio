@@ -405,7 +405,7 @@ function _lqHostCancel() {
   const lq = appState.liveQuiz;
   // Fire-and-forget — don't block the UI on the DB call
   if (lq.roomData) {
-    db.updateQuizRoom(lq.roomData.id, { status: 'finished', finished_at: new Date().toISOString() }).catch(() => {});
+    db.updateQuizRoom(lq.roomData.id, { status: 'finished', finished_at: new Date().toISOString() }).catch(e => console.warn('[LQ] cancel room update failed:', e));
   }
   _lqCleanup();
   _lqShowCreateForm(); // go back to create form so admin can reselect
@@ -423,7 +423,7 @@ async function _lqHostShowQuestion(qIdx) {
   lq._locked    = false;
   lq.secondsLeft = room.settings.timePerQuestion || 30;
   room.current_q_idx = qIdx;
-  await db.updateQuizRoom(room.id, { current_q_idx: qIdx }).catch(() => {});
+  await db.updateQuizRoom(room.id, { current_q_idx: qIdx }).catch(e => console.warn('[LQ] advance question failed:', e));
 
   const q         = questions[qIdx];
   const optColors = ['lq-opt-a','lq-opt-b','lq-opt-c','lq-opt-d'];
@@ -535,8 +535,8 @@ async function _lqHostEndQuiz() {
     answers:     p.answers,
     rank:        leaderboard.individual ? leaderboard.individual.findIndex(r => r.playerId === p.playerId) + 1 : null,
   }));
-  db.saveAllParticipants(rows).catch(() => {});
-  await db.updateQuizRoom(lq.roomData.id, { status: 'finished', finished_at: new Date().toISOString() }).catch(() => {});
+  db.saveAllParticipants(rows).catch(e => console.warn('[LQ] saveAllParticipants failed:', e));
+  await db.updateQuizRoom(lq.roomData.id, { status: 'finished', finished_at: new Date().toISOString() }).catch(e => console.warn('[LQ] finish room update failed:', e));
   lq.roomData.status = 'finished';
 
   _lqRenderLeaderboard(leaderboard, true);
@@ -682,7 +682,7 @@ function _lqShowJoinForm(prefillCode) {
         const teamRow = document.getElementById('lqTeamRow');
         if (teamRow) teamRow.style.display = '';
       }
-    }).catch(() => {});
+    }).catch(e => console.warn('[LQ] prefill room check failed:', e));
   }
 }
 
