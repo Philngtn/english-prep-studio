@@ -679,15 +679,9 @@ function _startSectionBreak(finishedSection) {
       _sectionBreakTimer = null;
       _sectionBreakSectionId = null;
       _audioFinishedSections.add(finishedSection.id);
-      // If student is already viewing the next section, start its audio now
-      const qs = appState.test && appState.test.flatQuestions;
-      const currentQ = qs && qs[appState.test.currentQ];
-      if (currentQ && currentQ.sectionId) {
-        const currentSection = sections.find(s => s.id === currentQ.sectionId);
-        if (currentSection && currentSection.id !== finishedSection.id) {
-          _updateListeningPlayerBar(currentSection);
-        }
-      }
+      // Always start the next section's audio automatically after the break
+      const nextSection = sections[sectionIdx + 1];
+      if (nextSection) _updateListeningPlayerBar(nextSection);
     }
   }, 1000);
 }
