@@ -831,12 +831,16 @@ RULES
 QUESTION TYPES
 --------------------------------------------------------------
 
-1. form_completion   ← labelled boxes, typical Part 1 forms
+1. form_completion   ← labelled fields, answer box sits directly next to the label
+   "label" is the field name shown to the left of the input box.
+   "instruction" (optional) — shown above the form (e.g. "Write ONE WORD ONLY").
    { "type": "form_completion",
+     "instruction": "Write ONE WORD AND/OR A NUMBER for each answer.",
      "answer_rule": "ONE WORD AND/OR A NUMBER",
      "questions": [
-       { "id": 1, "label": "Name",    "answer": ["Emma"],     "start": 18 },
-       { "id": 2, "label": "Postcode","answer": ["DW30 7YZ"], "start": 24 }
+       { "id": 1, "label": "Name:",           "answer": ["Emma"],     "start": 18 },
+       { "id": 2, "label": "Postcode:",        "answer": ["DW30 7YZ"], "start": 24 },
+       { "id": 3, "label": "Departure date:",  "answer": ["Friday"],   "start": 31 }
      ]
    }
 
@@ -893,22 +897,41 @@ QUESTION TYPES
      "answer": ["£2"], "start": 78
    }
 
-4. summary_completion  ← flowing paragraph with multiple inline blanks
-   First question carries all tokens (others just have id+answer+start):
+4. summary_completion  ← flowing paragraph with inline numbered blanks
+   TWO supported formats — use whichever is easier:
+
+   FORMAT A — simple (recommended for ChatGPT)
+   Each question has "text" = the sentence fragment containing ________ as the blank.
+   All sentences are joined into one flowing paragraph on screen.
+   { "type": "summary_completion",
+     "instruction": "Complete the summary using NO MORE THAN ONE WORD for each answer.",
+     "answer_rule": "ONE WORD ONLY",
+     "questions": [
+       { "id": 7, "text": "Built in ________, the building was later expanded.", "answer": ["1998"], "start": 90 },
+       { "id": 8, "text": "It was expanded ________ times over the following decade.",  "answer": ["three"], "start": 95 },
+       { "id": 9, "text": "The expansion was funded by a ________ grant.",             "answer": ["government"], "start": 102 }
+     ]
+   }
+
+   FORMAT B — token-based (precise blank placement within one shared paragraph)
+   Put ALL tokens on the first question; other questions only need id+answer+start.
    { "type": "summary_completion",
      "answer_rule": "ONE WORD ONLY",
      "questions": [
        { "id": 7,
          "tokens": [
-           {"type":"text","value":"Built in "},
-           {"type":"blank","id":7},
-           {"type":"text","value":", expanded "},
-           {"type":"blank","id":8},
-           {"type":"text","value":" times."}
+           {"type":"text",  "value":"Built in "},
+           {"type":"blank", "id":7},
+           {"type":"text",  "value":", expanded "},
+           {"type":"blank", "id":8},
+           {"type":"text",  "value":" times, funded by a "},
+           {"type":"blank", "id":9},
+           {"type":"text",  "value":" grant."}
          ],
          "answer": ["1998"], "start": 90
        },
-       { "id": 8, "answer": ["three"], "start": 95 }
+       { "id": 8, "answer": ["three"],      "start": 95  },
+       { "id": 9, "answer": ["government"], "start": 102 }
      ]
    }
 
@@ -1016,8 +1039,9 @@ FOR note_completion — use this format (NOT label/answer rows):
   Lines with blanks → "tokens": [{"type":"text","value":"..."}, {"type":"blank","id":N}, ...]
   Lines with no blank → "text": "plain text here"
 
+FOR form_completion → use "label" (not "text") for the field name shown left of the input box. Add optional "instruction" on the group for the rule shown above the form.
 FOR sentence_completion with inline blanks → use "tokens" array per question.
-FOR summary_completion with multiple blanks → put all tokens on first question only; other questions just need id+answer+start.
+FOR summary_completion → PREFERRED: give each question a "text" field containing the sentence with ________ as the blank placeholder (all sentences render as one flowing paragraph). ALTERNATIVE: put all tokens on the first question only; other questions just need id+answer+start.
 FOR multiple_choice two answers → add "multi": true, "count": 2 on the group.
 FOR matching → "question" is the main question text (e.g. "Which event... took place in each year?"); "instruction" is the secondary line (e.g. "Choose SIX answers... write the correct letter, A–H, next to Questions"); "options" is the shared A–H list (format: "A. description"); "text" on each question is the label/year being matched; add "options_heading" for the bold title above the list.
 FOR map/diagram labeling → set x and y to 0 (positions are set visually in the admin tool).
