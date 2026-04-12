@@ -611,9 +611,16 @@ function _adminDoImportSection(replaceAll) {
     if (ta) ta.value = raw;
     adminImportListeningJSON(_aListeningPart, replaceAll);
   } else if (_aSec === 'reading') {
-    const ta = document.getElementById('rd-import-json-0');
-    if (ta) ta.value = raw;
-    adminImportReadingJSON(0, replaceAll);
+    // If the JSON has a top-level "passages" array, import all passages at once
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch(e) { showToast('Invalid JSON: ' + e.message); return; }
+    if (parsed.passages && Array.isArray(parsed.passages) && parsed.passages.length >= 1) {
+      adminImportReadingSection(parsed, replaceAll);
+    } else {
+      const ta = document.getElementById('rd-import-json-0');
+      if (ta) ta.value = raw;
+      adminImportReadingJSON(0, replaceAll);
+    }
   } else if (_aSec === 'writing') {
     const ta = document.getElementById('wr-import-json');
     if (ta) ta.value = raw;
@@ -994,6 +1001,22 @@ const READING_JSON_SCHEMA = `
   Paste into Admin → Reading Editor → Import JSON
 ==============================================================
 
+FULL-SECTION FORMAT (all passages at once — recommended):
+{
+  "passages": [
+    { "passage_id": 1, "title": "...", "text": "...", "groups": [...] },
+    { "passage_id": 2, "title": "...", "text": "...", "groups": [...] },
+    { "passage_id": 3, "title": "...", "text": "...", "groups": [...] }
+  ]
+}
+"Replace All" replaces every passage; "Append" merges into existing passages.
+
+SINGLE-PASSAGE FORMAT (one passage):
+{ "title": "...", "text": "...", "groups": [...] }
+  — or —
+{ "passages": [{ "passage_id": 1, ... }] }
+
+--------------------------------------------------------------
 RULES:
 - "groups" is an array of question groups for one passage.
 - Each group has a "type" and "questions" (or "labels" for diagram).
@@ -2360,6 +2383,40 @@ function adminImportReadingJSON(pi, replaceAll) {
 
   _applyReadingEditorState(data);
   showToast(`Imported ${flatQs.length} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
+}
+
+// Import a full reading section: { "passages": [ {passage_id, title, text, groups}, ... ] }
+function adminImportReadingSection(parsed, replaceAll) {
+  const incoming = parsed.passages;
+  if (!incoming || !incoming.length) { showToast('No passages found.'); return; }
+
+  const data = replaceAll ? { passages: [] } : _collectReadingData();
+  let totalQs = 0;
+
+  incoming.forEach((passage, idx) => {
+    const pi = replaceAll ? idx : (passage.passage_id != null ? passage.passage_id - 1 : data.passages.length);
+    const flatQs = _rdGroupsToFlat(passage, pi);
+    totalQs += flatQs.length;
+    if (!data.passages[pi]) {
+      data.passages[pi] = { id: `p${pi + 1}`, title: passage.title || '', text: passage.text || '', questions: [] };
+    } else {
+      if (passage.title) data.passages[pi].title = passage.title;
+      if (passage.text)  data.passages[pi].text  = passage.text;
+    }
+    if (replaceAll) {
+      data.passages[pi].questions = flatQs;
+    } else {
+      data.passages[pi].questions.push(...flatQs);
+    }
+  });
+
+  // Fill any gaps from sparse passage_id assignments
+  for (let i = 0; i < data.passages.length; i++) {
+    if (!data.passages[i]) data.passages[i] = { id: `p${i + 1}`, title: '', text: '', questions: [] };
+  }
+
+  _applyReadingEditorState(data);
+  showToast(`Imported ${incoming.length} passage(s), ${totalQs} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
 }
 
 function adminAddReadingPassage() {
