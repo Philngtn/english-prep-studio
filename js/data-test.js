@@ -363,13 +363,7 @@ const TEST_PACKAGES = {
     id: 'cam18',
     name: 'Cambridge IELTS 18',
     tests: {
-      'test1': {
-        id: 'test1', name: 'Test 1',
-        listening: LISTENING_DATA,
-        reading:   READING_DATA,
-        writing:   WRITING_DATA,
-        speaking:  SPEAKING_DATA,
-      },
+      'test1': { id: 'test1', name: 'Test 1', listening: null, reading: null, writing: null, speaking: null },
       'test2': { id: 'test2', name: 'Test 2', listening: null, reading: null, writing: null, speaking: null },
       'test3': { id: 'test3', name: 'Test 3', listening: null, reading: null, writing: null, speaking: null },
       'test4': { id: 'test4', name: 'Test 4', listening: null, reading: null, writing: null, speaking: null },

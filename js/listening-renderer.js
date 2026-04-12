@@ -10,6 +10,8 @@ function lsEsc(s) {
 }
 
 function lsJumpBtn(questionStart) {
+  // Hide in countdown (exam) mode — seeking gives an unfair advantage
+  if (typeof appState !== 'undefined' && appState.timerCountdown) return '';
   if (questionStart == null || questionStart < 0) return '';
   const ts   = Math.round(questionStart);
   const mins = Math.floor(ts / 60);

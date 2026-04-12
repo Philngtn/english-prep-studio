@@ -78,9 +78,7 @@ function setupReadingTest() {
   appState.test.section = 'reading';
   appState.test.timerSeconds = 60 * 60;
   document.getElementById('timerSectionName').textContent = 'Reading';
-  const saved = getActiveTestData('reading');
-  const hasQs = saved && saved.passages && saved.passages.some(p => p.questions && p.questions.length > 0);
-  const data  = hasQs ? saved : READING_DATA;
+  const data = getActiveTestData('reading') || READING_DATA;
   const qs = [];
   data.passages.forEach(p => p.questions.forEach(q => qs.push({...q, passageId: p.id})));
   appState.test.flatQuestions = qs;
@@ -91,9 +89,7 @@ function setupListeningTest() {
   appState.test.section = 'listening';
   appState.test.timerSeconds = 30 * 60;
   document.getElementById('timerSectionName').textContent = 'Listening';
-  const saved = getActiveTestData('listening');
-  const hasQs = saved && saved.sections && saved.sections.some(s => s.questions && s.questions.length > 0);
-  const data  = hasQs ? saved : LISTENING_DATA;
+  const data = getActiveTestData('listening') || LISTENING_DATA;
   const qs = [];
   data.sections.forEach(s => s.questions.forEach(q => qs.push({...q, sectionId: s.id})));
   appState.test.flatQuestions = qs;
@@ -429,7 +425,7 @@ function renderCurrentQuestion() {
       }
     }
     let transcriptHTML = '';
-    if (section && section.transcript) {
+    if (section && section.transcript && !appState.timerCountdown) {
       const expanded = _transcriptExpanded;
       transcriptHTML = `
         <div class="listening-transcript">
