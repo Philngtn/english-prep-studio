@@ -1010,14 +1010,24 @@ QUESTION TYPES
       ]
     }
 
-11. map_labeling / diagram_labeling / plan_labeling
-    x and y are set visually in Admin with "Place Boxes" — leave as 0 when generating.
-    { "type": "map_labeling",
-      "answer_rule": "ONE WORD ONLY",
-      "image": "https://SUPABASE_URL/storage/v1/object/public/media/diagrams/map.jpg",
-      "labels": [
-        { "id": 21, "label": "A", "answer": ["café"],          "start": 202, "x": 0, "y": 0 },
-        { "id": 22, "label": "B", "answer": ["changing room"], "start": 208, "x": 0, "y": 0 }
+11. diagram_matching — diagram image above letter-selection dropdowns
+    "question"      — goal text ("Complete the timetable.")
+    "instruction"   — rule shown to student ("Write the correct letter, A–J, for each answer.")
+    "image"         — URL of the diagram/timetable image
+    "options_range" — letter range e.g. "A-J" (preferred, auto-expands to A B C ... J)
+    "options"       — explicit letter array e.g. ["A","B","C"] (use if range doesn't apply)
+    "text" on each question — the row label (e.g. "Teacher-led discussion", "Monday 9am")
+    { "type": "diagram_matching",
+      "question": "Complete the timetable.",
+      "instruction": "Write the correct letter, A–J, for each answer.",
+      "answer_rule": "ONE LETTER ONLY",
+      "image": "https://SUPABASE_URL/storage/v1/object/public/media/diagrams/timetable.jpg",
+      "options_range": "A-J",
+      "questions": [
+        { "id": 17, "text": "Teacher-led discussion", "answer": ["B"], "start": 120 },
+        { "id": 18, "text": "Writing skills",         "answer": ["F"], "start": 135 },
+        { "id": 19, "text": "On-call teacher",        "answer": ["C"], "start": 148 },
+        { "id": 20, "text": "Language exchange",      "answer": ["I"], "start": 160 }
       ]
     }
 
@@ -1044,7 +1054,7 @@ FOR sentence_completion with inline blanks → use "tokens" array per question.
 FOR summary_completion → PREFERRED: give each question a "text" field containing the sentence with ________ as the blank placeholder (all sentences render as one flowing paragraph). ALTERNATIVE: put all tokens on the first question only; other questions just need id+answer+start.
 FOR multiple_choice two answers → add "multi": true, "count": 2 on the group.
 FOR matching → "question" is the main question text (e.g. "Which event... took place in each year?"); "instruction" is the secondary line (e.g. "Choose SIX answers... write the correct letter, A–H, next to Questions"); "options" is the shared A–H list (format: "A. description"); "text" on each question is the label/year being matched; add "options_heading" for the bold title above the list.
-FOR map/diagram labeling → set x and y to 0 (positions are set visually in the admin tool).
+FOR diagram_matching → use "options_range" (e.g. "A-J") for a compact letter range; set "question" to the completion goal and "instruction" to the letter-selection rule; "text" on each question is the row label shown left of the dropdown (e.g. "Teacher-led discussion"). "image" must be a full URL to the uploaded diagram image (upload via Admin first). Do NOT use map_labeling, diagram_labeling, or plan_labeling — those are removed. Use diagram_matching for ALL timetable, map, plan, and diagram question sets.
 
 TRANSCRIPT:
 [PASTE TRANSCRIPT HERE]
@@ -1489,7 +1499,7 @@ const SPEAKING_JSON_SCHEMA = `{
 function _lsNormalizeType(t) {
   if (t === 'multiple_choice') return 'mcq';
   if (t === 'short_answer')    return 'short';
-  if (t === 'plan_labeling')   return 'plan_labeling';
+  if (t === 'map_labeling' || t === 'diagram_labeling' || t === 'plan_labeling') return 'diagram_matching';
   if (t === 'sentence_completion') return 'sentence_completion';
   if (t === 'summary_completion')  return 'summary_completion';
   if (t === 'note_completion')     return 'note_completion';
@@ -1501,10 +1511,9 @@ function _lsGroupsToFlat(section, si) {
   (section.groups || []).forEach((group, gi) => {
     const groupId  = `grp_s${si}_g${gi}_${Date.now()}`;
     const type     = _lsNormalizeType(group.type);
-    const isGfx    = type === 'map_labeling' || type === 'diagram_labeling' || type === 'plan_labeling';
-    const isGroup  = isGfx || ['flow_chart','table_completion','form_completion','note_completion',
-                                'sentence_completion','summary_completion','matching'].includes(type);
-    const items    = isGfx ? (group.labels || group.questions || []) : (group.questions || []);
+    const isGroup  = ['diagram_matching','flow_chart','table_completion','form_completion','note_completion',
+                       'sentence_completion','summary_completion','matching'].includes(type);
+    const items    = group.questions || [];
     const answerRule  = group.answer_rule || group.answerRule || '';
     const instruction = group.instruction || '';
     const isMulti     = type === 'multi' || group.multi === true;
@@ -1572,7 +1581,12 @@ function _lsGroupsToFlat(section, si) {
         q.optionsHeading = group.options_heading || group.optionsHeading || '';
         q.matchQuestion  = group.question || '';
       }
-      if (isGfx)  { q.groupImage = group.image || ''; q.xPct = item.x || 0; q.yPct = item.y || 0; q.labelText = item.label || ''; }
+      if (type === 'diagram_matching' && ii === 0) {
+        q.groupImage    = group.image          || '';
+        q.optionsRange  = group.options_range  || '';
+        q.options       = group.options        || [];
+        q.matchQuestion = group.question       || '';
+      }
       if (type === 'flow_chart')       { q.nodeNum = item.node || (ii + 1); q.prefix = item.prefix || ''; q.suffix = item.suffix || ''; }
       if (type === 'table_completion') { q.rowContext = item.row || ''; q.colContext = item.col || ''; q.groupColumns = group.columns || []; }
       // Token-based sentence/summary: propagate tokens array if present on item
@@ -1685,12 +1699,12 @@ function _lsFlatToGroups(questions, si, secMeta) {
       if (q.answerRule) grp.answer_rule = q.answerRule;
       if (q.instruction) grp.instruction = q.instruction;
 
-      if (type === 'map_labeling' || type === 'diagram_labeling' || type === 'plan_labeling') {
-        grp.image   = peers[0].groupImage || '';
-        grp.labels  = peers.map(p => {
-          const entry = { id: p.qNum, label: p.text || '', answer: [p.answer || ''], start: p.questionStart || 0, x: p.xPct || 0, y: p.yPct || 0 };
-          return entry;
-        });
+      if (type === 'diagram_matching') {
+        if (peers[0].groupImage)    grp.image         = peers[0].groupImage;
+        if (peers[0].optionsRange)  grp.options_range = peers[0].optionsRange;
+        else if (peers[0].options && peers[0].options.length) grp.options = peers[0].options;
+        if (peers[0].matchQuestion) grp.question      = peers[0].matchQuestion;
+        grp.questions = peers.map(p => ({ id: p.qNum, text: p.text || '', answer: [p.answer || ''], start: p.questionStart || 0 }));
       } else if (type === 'flow_chart') {
         grp.questions = peers.map(p => ({
           id: p.qNum, node: p.nodeNum || 1,
@@ -2068,13 +2082,10 @@ const _LS_ALL_TYPES = [
   ['sentence_completion', 'Sentence Completion'],
   ['summary_completion',  'Summary Completion'],
   ['table_completion',    'Table Completion'],
-  ['map_labeling',        'Map Labeling'],
-  ['diagram_labeling',    'Diagram Labeling'],
-  ['plan_labeling',       'Plan Labeling'],
+  ['diagram_matching',    'Diagram Matching (image + dropdowns)'],
   ['flow_chart',          'Flow Chart'],
 ];
-const _LS_GFX_TYPES   = ['map_labeling','diagram_labeling','plan_labeling'];
-const _LS_GROUP_TYPES = ['map_labeling','diagram_labeling','plan_labeling','flow_chart','table_completion','form_completion','note_completion','sentence_completion','summary_completion'];
+const _LS_GROUP_TYPES = ['diagram_matching','flow_chart','table_completion','form_completion','note_completion','sentence_completion','summary_completion'];
 
 function _buildListeningQuestionRow(si, qi, q) {
   const type    = q.type || 'short';
@@ -2087,7 +2098,7 @@ function _buildListeningQuestionRow(si, qi, q) {
   const typeOpts = _LS_ALL_TYPES.map(([t, label]) =>
     `<option value="${t}"${t === type ? ' selected' : ''}>${label}</option>`).join('');
 
-  const textLabel = _LS_GFX_TYPES.includes(type) ? 'Label Letter (e.g. A, B, C)'
+  const textLabel = type === 'diagram_matching'  ? 'Row Label'
                   : type === 'flow_chart'         ? 'Description (optional)'
                   : type === 'table_completion'   ? 'Description (optional)'
                   : 'Question Text / Blank Label';
@@ -2096,14 +2107,20 @@ function _buildListeningQuestionRow(si, qi, q) {
                    : type === 'multi'     ? ' (e.g. B, E)'
                    : type === 'mcq'       ? ' (e.g. B)'
                    : type === 'matching'  ? ' (e.g. D)'
-                   : _LS_GFX_TYPES.includes(type) ? ' (e.g. café)' : '';
+                   : '';
 
-  const optionsSection = (type === 'mcq' || type === 'multi' || type === 'matching') ? `
-    ${type === 'matching' ? `
+  const optionsSection = (type === 'mcq' || type === 'multi' || type === 'matching' || type === 'diagram_matching') ? `
+    ${(type === 'matching' || type === 'diagram_matching') ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
-      <label class="admin-label">Main Question <small style="color:var(--text-muted);">(e.g. "Which event in the history of football took place in each year?")</small></label>
-      <input class="admin-input" id="ls-matchq-${si}-${qi}" value="${_esc(q.matchQuestion||'')}" placeholder="e.g. Which event in the history of football...">
-    </div>
+      <label class="admin-label">Goal Text <small style="color:var(--text-muted);">(e.g. "Complete the timetable.")</small></label>
+      <input class="admin-input" id="ls-matchq-${si}-${qi}" value="${_esc(q.matchQuestion||'')}" placeholder="e.g. Complete the timetable.">
+    </div>` : ''}
+    ${type === 'diagram_matching' ? `
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Options Range <small style="color:var(--text-muted);">(e.g. "A-J" — auto-expands; or leave blank and list below)</small></label>
+      <input class="admin-input" id="ls-optrange-${si}-${qi}" value="${_esc(q.optionsRange||'')}" placeholder="e.g. A-J">
+    </div>` : ''}
+    ${type === 'matching' ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
       <label class="admin-label">Options Heading <small style="color:var(--text-muted);">(e.g. "Events in the history of football")</small></label>
       <input class="admin-input" id="ls-opthead-${si}-${qi}" value="${_esc(q.optionsHeading||'')}" placeholder="e.g. Events in the history of football">
@@ -2121,9 +2138,9 @@ function _buildListeningQuestionRow(si, qi, q) {
         min="1" max="5" value="${count}">
     </div>` : '';
 
-  const graphicSection = _LS_GFX_TYPES.includes(type) ? `
+  const graphicSection = type === 'diagram_matching' ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
-      <label class="admin-label">Image</label>
+      <label class="admin-label">Diagram Image</label>
       <div class="diag-upload-row">
         <input class="admin-input" id="ls-img-${si}-${qi}" value="${_esc(q.groupImage||'')}"
           placeholder="Paste URL, or upload ↓">
@@ -2131,21 +2148,9 @@ function _buildListeningQuestionRow(si, qi, q) {
           onchange="adminLsUploadImage(${si},${qi},this)">
         <button class="btn btn-sm btn-outline" type="button"
           onclick="document.getElementById('ls-img-file-${si}-${qi}').click()">&#8679; Upload</button>
-        <button class="btn btn-sm btn-primary" type="button"
-          onclick="adminLsDiagOpenModal(${si},${qi})">&#128506; Place Boxes</button>
       </div>
       <div id="ls-img-preview-${si}-${qi}" style="margin-top:0.4rem;">
         ${q.groupImage ? `<img src="${_esc(q.groupImage)}" class="diag-img-preview" alt="Preview" style="max-height:80px;border-radius:4px;">` : ''}
-      </div>
-    </div>
-    <div class="admin-vocab-grid" style="margin-top:0.5rem;">
-      <div class="admin-field-row">
-        <label class="admin-label">Position X % <small>(left edge)</small></label>
-        <input class="admin-input" type="number" step="0.1" min="0" max="100" id="ls-xpct-${si}-${qi}" value="${q.xPct||0}">
-      </div>
-      <div class="admin-field-row">
-        <label class="admin-label">Position Y % <small>(top edge)</small></label>
-        <input class="admin-input" type="number" step="0.1" min="0" max="100" id="ls-ypct-${si}-${qi}" value="${q.yPct||0}">
       </div>
     </div>` : '';
 
@@ -2214,7 +2219,7 @@ function _buildListeningQuestionRow(si, qi, q) {
     <div class="admin-field-row" style="margin-top:0.5rem;">
       <label class="admin-label">${textLabel}</label>
       <input class="admin-input" id="ls-text-${si}-${qi}"
-        value="${_esc(text)}" placeholder="${_LS_GFX_TYPES.includes(type) ? 'A' : 'Question text'}">
+        value="${_esc(text)}" placeholder="${type === 'diagram_matching' ? 'Row label (e.g. Teacher-led discussion)' : 'Question text'}">
     </div>` : `<input type="hidden" id="ls-text-${si}-${qi}" value="">`;
 
   return `
@@ -2298,10 +2303,9 @@ function _collectListeningData() {
       const parsedNum  = qNum && !isNaN(qNum) ? parseInt(qNum) : (qNum || '');
       const groupId       = _val(`ls-grpid-${si}-${qi}`);
       const optionsHeading = type === 'matching' ? _val(`ls-opthead-${si}-${qi}`) : undefined;
-      const matchQuestion  = type === 'matching' ? _val(`ls-matchq-${si}-${qi}`)  : undefined;
-      const groupImage = _val(`ls-img-${si}-${qi}`);
-      const xPct       = parseFloat(_val(`ls-xpct-${si}-${qi}`)) || 0;
-      const yPct       = parseFloat(_val(`ls-ypct-${si}-${qi}`)) || 0;
+      const matchQuestion  = (type === 'matching' || type === 'diagram_matching') ? _val(`ls-matchq-${si}-${qi}`)  : undefined;
+      const groupImage   = _val(`ls-img-${si}-${qi}`);
+      const optionsRange = type === 'diagram_matching' ? _val(`ls-optrange-${si}-${qi}`) : undefined;
       const rowContext  = _val(`ls-row-${si}-${qi}`);
       const colContext  = _val(`ls-col-${si}-${qi}`);
       const nodeNum    = parseInt(_val(`ls-node-${si}-${qi}`)) || 0;
@@ -2333,9 +2337,8 @@ function _collectListeningData() {
         ...(options.length ? { options } : {}),
         ...(type === 'multi' ? { count } : {}),
         ...(groupId    ? { groupId }    : {}),
-        ...(groupImage ? { groupImage } : {}),
-        ...(xPct       ? { xPct }       : {}),
-        ...(yPct       ? { yPct }       : {}),
+        ...(groupImage   ? { groupImage }   : {}),
+        ...(optionsRange != null ? { optionsRange } : {}),
         ...(rowContext  ? { rowContext } : {}),
         ...(colContext  ? { colContext } : {}),
         ...(nodeNum     ? { nodeNum }    : {}),

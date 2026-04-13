@@ -41,8 +41,8 @@ function lsRenderGroup(q, idx) {
     ? `Question ${peers[0].qNum || firstIdx + 1}`
     : `Questions ${peers[0].qNum || firstIdx + 1}–${peers[peers.length-1].qNum || lastIdx + 1}`;
   const t = q.type;
-  if (t === 'map_labeling' || t === 'diagram_labeling' || t === 'plan_labeling')
-    return lsRenderMapGroup(peers, rangeLabel);
+  if (t === 'diagram_matching' || t === 'map_labeling' || t === 'diagram_labeling' || t === 'plan_labeling')
+    return lsRenderDiagramMatchingGroup(peers, rangeLabel);
   if (t === 'flow_chart')
     return lsRenderFlowGroup(peers, rangeLabel);
   if (t === 'table_completion')
@@ -60,36 +60,61 @@ function lsRenderGroup(q, idx) {
   return lsRenderGenericGroup(peers, rangeLabel);
 }
 
-/* ── Renderer: Map / Diagram / Plan labeling ──────────────── */
-function lsRenderMapGroup(peers, rangeLabel) {
-  const imgUrl = (peers[0] && peers[0].groupImage) || '';
-  const answerRule  = (peers[0] && peers[0].answerRule)  || '';
-  const instruction = (peers[0] && peers[0].instruction) || '';
+/* ── Helper: expand "A-J" → ["A","B",...,"J"] ────────────────── */
+function _expandOptionsRange(str) {
+  if (!str) return [];
+  const m = String(str).toUpperCase().match(/^([A-Z])\s*[-–]\s*([A-Z])$/);
+  if (!m) return [];
+  const start = m[1].charCodeAt(0), end = m[2].charCodeAt(0);
+  if (end < start) return [];
+  const out = [];
+  for (let c = start; c <= end; c++) out.push(String.fromCharCode(c));
+  return out;
+}
 
-  const pinsHtml = peers.map((p, i) => {
-    const label = p.text || String.fromCharCode(65 + i);
+/* ── Renderer: Diagram Matching (image + dropdowns) ──────────── */
+function lsRenderDiagramMatchingGroup(peers, rangeLabel) {
+  const answerRule    = (peers[0] && peers[0].answerRule)    || '';
+  const matchQuestion = (peers[0] && peers[0].matchQuestion) || '';
+  const instruction   = (peers[0] && peers[0].instruction)   || '';
+  const imgUrl        = (peers[0] && peers[0].groupImage)    || '';
+
+  const optionsRange = (peers[0] && peers[0].optionsRange) || '';
+  const rawOptions   = (peers[0] && peers[0].options)      || [];
+  const letters = optionsRange
+    ? _expandOptionsRange(optionsRange)
+    : rawOptions.map(o => String(o).trim()).filter(Boolean);
+
+  const questionHtml = matchQuestion
+    ? `<div class="ls-matching-question">${escHtml(matchQuestion)}</div>` : '';
+  const imgHtml = imgUrl
+    ? `<img src="${escHtml(imgUrl)}" class="ls-diagram-img" alt="Diagram">`
+    : '';
+
+  const questionsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
-    return `<div class="ls-map-pin" style="left:${p.xPct || 0}%;top:${p.yPct || 0}%">
-      <div class="ls-map-letter">${escHtml(label)}</div>
-      <input type="text" class="ls-map-input" value="${escHtml(saved)}"
-             data-qid="${p.id}"
-             oninput="saveAnswer('${p.id}',this.value)" placeholder="${escHtml(label)}">
+    const ddOpts = [`<option value="">Select…</option>`,
+      ...letters.map(letter => {
+        const sel = letter.toUpperCase() === (saved || '').toUpperCase() ? ' selected' : '';
+        return `<option value="${escHtml(letter)}"${sel}>${escHtml(letter)}</option>`;
+      })
+    ].join('');
+    return `<div class="ls-matching-row">
+      <span class="ls-match-qnum">${p.qNum}</span>
+      <span class="ls-match-label">${escHtml(p.text || '')}</span>
+      <select class="ls-matching-select" data-qid="${p.id}"
+        onchange="saveAnswer('${p.id}',this.value)">${ddOpts}</select>
+      ${lsJumpBtn(p.questionStart)}
     </div>`;
   }).join('');
 
-  const promptsHtml = peers.map((p, i) => {
-    const label = p.text || String.fromCharCode(65 + i);
-    return `<div class="ls-map-prompt"><strong>${escHtml(label)}.</strong> ${lsJumpBtn(p.questionStart)}</div>`;
-  }).join('');
-
-  return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
+  return `<div class="question-block ls-matching-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
+    ${questionHtml}
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
-    ${imgUrl
-      ? `<div class="ls-map-wrap"><img src="${escHtml(imgUrl)}" class="ls-map-img" alt="Map/Diagram"><div class="ls-map-overlay">${pinsHtml}</div></div>`
-      : '<p class="ls-no-image">No image set.</p>'}
-    <div class="ls-map-prompts">${promptsHtml}</div>
+    ${imgHtml}
+    <div class="ls-matching-questions">${questionsHtml}</div>
   </div>`;
 }
 

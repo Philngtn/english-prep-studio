@@ -612,39 +612,12 @@ iframe.listening-audio-player { height: 80px; }
    ===== LISTENING GROUP RENDERERS =====
    ============================================================ */
 
-/* Map / Diagram labeling */
-.ls-map-wrap {
-  position: relative; margin: 1rem 0;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  overflow: hidden;
+/* Diagram Matching */
+.ls-diagram-img {
+  display: block; width: 100%; height: auto; max-height: 480px;
+  object-fit: contain; border-radius: var(--radius);
+  border: 1px solid var(--border); margin: 0.75rem 0 1rem;
 }
-.ls-map-img {
-  display: block; width: 100%; height: auto; max-height: 420px;
-  object-fit: contain;
-}
-.ls-map-overlay {
-  position: absolute; inset: 0; pointer-events: none;
-}
-.ls-map-pin {
-  position: absolute; transform: translate(-50%, -50%);
-  display: flex; flex-direction: column; align-items: center;
-  pointer-events: all;
-}
-.ls-map-letter {
-  background: var(--primary); color: #fff;
-  font-size: 0.7rem; font-weight: 700;
-  width: 20px; height: 20px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 2px; flex-shrink: 0;
-}
-.ls-map-input {
-  width: 80px; font-size: 0.75rem; padding: 0.2rem 0.35rem;
-  border: 1.5px solid var(--primary); border-radius: 4px;
-  background: rgba(255,255,255,0.92); text-align: center;
-}
-.ls-map-input:focus { outline: 2px solid var(--primary); }
-.ls-map-prompts { padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; }
-.ls-map-prompt { font-size: 0.9rem; }
 
 /* Flow chart */
 .ls-flow-chart {

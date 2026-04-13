@@ -1225,7 +1225,7 @@ function submitTest() {
   const results = flatQuestions.map(q => {
     const given = answers[q.id];
     let isCorrect = false;
-    if (q.type === 'mcq' || q.type === 'tfng' || q.type === 'matching') {
+    if (q.type === 'mcq' || q.type === 'tfng' || q.type === 'matching' || q.type === 'diagram_matching') {
       isCorrect = given && given.toUpperCase() === q.answer.toUpperCase();
     } else if (q.type === 'multi') {
       const givenArr = (given || '').split(',').filter(Boolean).map(s => s.toUpperCase()).sort();
@@ -1233,8 +1233,7 @@ function submitTest() {
       isCorrect = givenArr.length === ansArr.length && givenArr.every((v, i) => v === ansArr[i]);
     } else if (q.type === 'short' || q.type === 'sentence_completion' || q.type === 'note_completion'
         || q.type === 'summary_completion' || q.type === 'form_completion' || q.type === 'flow_chart'
-        || q.type === 'table_completion' || q.type === 'map_labeling' || q.type === 'diagram_labeling'
-        || q.type === 'plan_labeling') {
+        || q.type === 'table_completion') {
       const acceptables = String(q.answer || '').toLowerCase().split('/').map(s=>s.trim()).filter(Boolean);
       const givenNorm = (given||'').toLowerCase().trim();
       isCorrect = acceptables.length > 0 && acceptables.some(a => givenNorm.includes(a) || (a.includes(givenNorm) && givenNorm.length > 1));
