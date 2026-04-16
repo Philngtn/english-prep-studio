@@ -89,7 +89,7 @@ function lsRenderDiagramMatchingGroup(peers, rangeLabel) {
   const matchQuestion = (peers[0] && peers[0].matchQuestion) || '';
   const instruction   = (peers[0] && peers[0].instruction)   || '';
   const imgUrl        = (peers[0] && peers[0].groupImage)    || '';
-  const matchType     = (peers[0] && peers[0].matchType)     || 'select';
+  const matchType    = (peers[0] && peers[0].matchType) || '';
 
   const optionsRange = (peers[0] && peers[0].optionsRange) || '';
   const rawOptions   = (peers[0] && peers[0].options)      || [];
@@ -97,10 +97,8 @@ function lsRenderDiagramMatchingGroup(peers, rangeLabel) {
     ? _expandOptionsRange(optionsRange)
     : rawOptions.map(o => String(o).trim()).filter(Boolean);
 
-  // Resolve variant: 'inline' if explicit; 'select' only when options exist; else 'fill'
-  const resolvedMatchType = matchType === 'inline' ? 'inline'
-    : (matchType === 'select' && letters.length > 0) ? 'select'
-    : 'fill';
+  // Group is select variant only when match_type is explicitly 'select' AND options exist
+  const isSelect = matchType === 'select' && letters.length > 0;
 
   const questionHtml = matchQuestion
     ? `<div class="ls-matching-question">${escHtml(matchQuestion)}</div>` : '';
@@ -112,7 +110,29 @@ function lsRenderDiagramMatchingGroup(peers, rangeLabel) {
     const saved = appState.test.answers[p.id] || '';
     const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
 
-    if (resolvedMatchType === 'inline') {
+    if (isSelect) {
+      // Select variant: dropdown letter picker
+      const ddOpts = [`<option value="">Select…</option>`,
+        ...letters.map(letter => {
+          const sel = letter.toUpperCase() === (saved || '').toUpperCase() ? ' selected' : '';
+          return `<option value="${escHtml(letter)}"${sel}>${escHtml(letter)}</option>`;
+        })
+      ].join('');
+      return `<div class="ls-matching-row">
+        <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+          onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
+        <span class="ls-match-qnum">${p.qNum}</span>
+        <span class="ls-match-label">${escHtml(p.text || '')}</span>
+        <select class="ls-matching-select" data-qid="${p.id}"
+          onchange="saveAnswer('${p.id}',this.value)">${ddOpts}</select>
+        ${lsJumpBtn(p.questionStart)}
+      </div>`;
+    }
+
+    // Per-question: inline if text contains ________ or has tokens; else short label + blank
+    const isInline = !!(p.tokens && p.tokens.length) || (p.text || '').includes('________');
+
+    if (isInline) {
       // Inline blank: text contains ________ as placeholder, or use tokens
       const blankHtml = `<span class="ls-token-blank-wrap">
         <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
@@ -139,27 +159,15 @@ function lsRenderDiagramMatchingGroup(peers, rangeLabel) {
       return `<div class="ls-matching-inline-row">${lineHtml}</div>`;
     }
 
-    let inputHtml;
-    if (resolvedMatchType === 'fill') {
-      inputHtml = `<input type="text" class="ls-matching-fill-input" data-qid="${p.id}"
-        value="${escHtml(saved)}" oninput="saveAnswer('${p.id}',this.value)"
-        placeholder="…" autocomplete="off" spellcheck="false">`;
-    } else {
-      const ddOpts = [`<option value="">Select…</option>`,
-        ...letters.map(letter => {
-          const sel = letter.toUpperCase() === (saved || '').toUpperCase() ? ' selected' : '';
-          return `<option value="${escHtml(letter)}"${sel}>${escHtml(letter)}</option>`;
-        })
-      ].join('');
-      inputHtml = `<select class="ls-matching-select" data-qid="${p.id}"
-        onchange="saveAnswer('${p.id}',this.value)">${ddOpts}</select>`;
-    }
+    // Fill variant: short label beside a blank
     return `<div class="ls-matching-row">
       <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
         onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
       <span class="ls-match-qnum">${p.qNum}</span>
       <span class="ls-match-label">${escHtml(p.text || '')}</span>
-      ${inputHtml}
+      <input type="text" class="ls-matching-fill-input" data-qid="${p.id}"
+        value="${escHtml(saved)}" oninput="saveAnswer('${p.id}',this.value)"
+        placeholder="…" autocomplete="off" spellcheck="false">
       ${lsJumpBtn(p.questionStart)}
     </div>`;
   }).join('');

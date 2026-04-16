@@ -1027,43 +1027,33 @@ QUESTION TYPES
       ]
     }
 
-11. diagram_matching — image on left, labelled questions on right
-    "match_type"  — THREE variants:
-      "fill"    (DEFAULT) — short label beside a blank, e.g. "inlet pipe [____]"
-      "inline"  — full sentence with blank embedded, e.g. "Molecule splits, producing [____] for analysis"
-      "select"  — student picks a letter from a dropdown (requires options_range or options)
+11. diagram_matching — image on left, questions on right
+    "match_type"  — TWO variants:
+      (omit / "fill") — text-based: each question auto-detects its style from "text":
+                         • Short label (no "________") → renders as  21 inlet pipe [___]
+                         • Sentence with "________"   → renders inline with blank embedded
+                         Both styles can be mixed freely within the same group.
+      "select"        — student picks a letter from a dropdown (requires options_range or options)
     "question"    — goal text shown above the question block
     "instruction" — answering rule ("Write ONE WORD ONLY." / "Write the correct letter, A–J.")
     "answer_rule" — short rule shown inline above questions
     "image"       — URL of the diagram/map/plan image (renders on LEFT; questions on RIGHT)
 
-    Variant A — fill (DEFAULT — short label + blank):
+    Standard variant — mix short labels and inline sentences freely:
     { "type": "diagram_matching",
       "question": "Label the diagram.",
       "instruction": "Write ONE WORD ONLY for each answer.",
       "answer_rule": "ONE WORD ONLY",
       "image": "https://SUPABASE_URL/storage/v1/object/public/media/diagrams/turbine.jpg",
       "questions": [
-        { "id": 21, "text": "inlet pipe",    "answer": ["turbine"],   "start": 200 },
-        { "id": 22, "text": "output shaft",  "answer": ["generator"], "start": 215 }
+        { "id": 21, "text": "inlet pipe",                                          "answer": ["turbine"],   "start": 200 },
+        { "id": 22, "text": "Molecule splits, producing ________ for analysis",    "answer": ["fragments"], "start": 210 },
+        { "id": 23, "text": "output shaft",                                        "answer": ["generator"], "start": 215 },
+        { "id": 24, "text": "________ filter removes large particles",             "answer": ["Mesh"],      "start": 218 }
       ]
     }
 
-    Variant B — inline (sentence with blank embedded — use when the label is a full phrase):
-    Use "________" (8 underscores) in "text" as the blank placeholder.
-    { "type": "diagram_matching",
-      "match_type": "inline",
-      "question": "Complete the diagram labels.",
-      "instruction": "Write ONE WORD ONLY for each answer.",
-      "answer_rule": "ONE WORD ONLY",
-      "image": "https://SUPABASE_URL/storage/v1/object/public/media/diagrams/process.jpg",
-      "questions": [
-        { "id": 23, "text": "Molecule splits, producing ________ for analysis", "answer": ["fragments"], "start": 210 },
-        { "id": 24, "text": "________ filter removes large particles",           "answer": ["Mesh"],      "start": 218 }
-      ]
-    }
-
-    Variant C — select (matching, student picks from letter dropdown):
+    Select variant (dropdown letters):
     { "type": "diagram_matching",
       "match_type": "select",
       "question": "Complete the timetable.",
@@ -1105,7 +1095,7 @@ FOR sentence_completion with inline blanks → use "tokens" array per question.
 FOR summary_completion → PREFERRED: give each question a "text" field containing the sentence with ________ as the blank placeholder (all sentences render as one flowing paragraph). ALTERNATIVE: put all tokens on the first question only; other questions just need id+answer+start.
 FOR multiple_choice two answers → add "multi": true, "count": 2 on the group.
 FOR matching → "question" is the main question text (e.g. "Which event... took place in each year?"); "instruction" is the secondary line (e.g. "Choose SIX answers... write the correct letter, A–H, next to Questions"); "options" is the shared A–H list (format: "A. description"); "text" on each question is the label/year being matched; add "options_heading" for the bold title above the list.
-FOR diagram_matching → THREE variants. (A) DEFAULT "fill": short label + blank beside it — omit "match_type" or set "match_type":"fill"; "text" is the short label (e.g. "inlet pipe"). (B) "match_type":"inline": full sentence with blank embedded — use "________" (8 underscores) in "text" where the blank goes, e.g. "Molecule splits, producing ________ for analysis"; use this when the label context is a complete phrase. (C) "match_type":"select": student picks a letter from a dropdown; also provide "options_range" (e.g. "A-J"). Always set "question" to the goal sentence, "instruction" to the answering rule, "answer_rule" to the short constraint. "image" is a full URL; renders LEFT with questions RIGHT. Do NOT use map_labeling, diagram_labeling, or plan_labeling.
+FOR diagram_matching → TWO variants. (A) DEFAULT (omit "match_type"): each question auto-detects its style — if "text" contains "________" (8 underscores) the blank is embedded inline in that sentence; otherwise "text" is treated as a short label and a blank appears beside it. BOTH styles can be mixed freely in the same group. Use this for any diagram/map/plan/process labelling. (B) "match_type":"select": student picks a letter from a dropdown; also provide "options_range" (e.g. "A-J"). Always set "question" to the goal sentence, "instruction" to the answering rule, "answer_rule" to the short constraint. "image" is a full URL; renders LEFT with questions RIGHT. Do NOT use map_labeling, diagram_labeling, or plan_labeling.
 FOR table_completion → PREFERRED: use the rich "rows" format where each cell is an array of segments: {"t":"text","content":"..."} for plain text or {"t":"blank","id":N,"answer":["word"],"start":S} for a numbered blank. Multiple blanks per cell are supported. "columns" is the header row. LEGACY: "questions" with "row"/"col" per blank is still supported but cannot express multiple blanks in one cell or text around the blank.
 
 TRANSCRIPT:
