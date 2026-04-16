@@ -895,6 +895,10 @@ function _rdRenderGroupBlock(peers) {
     inner = _rdRenderDiagram(peers, rangeLabel);
   } else if (type === 'table_completion') {
     inner = _rdRenderTable(peers, rangeLabel);
+  } else if (type === 'sentence_completion') {
+    inner = _rdRenderSentenceList(peers, rangeLabel);
+  } else if (type === 'summary_completion') {
+    inner = _rdRenderSummaryParagraph(peers, rangeLabel);
   } else if (isMatchingType) {
     inner = _rdRenderMatchingGroup(peers, rangeLabel);
   } else {
@@ -959,29 +963,193 @@ function _rdRenderMatchingGroup(peers, rangeLabel) {
   </div>`;
 }
 
+/* Render sentence_completion as a list; each question auto-detects inline vs label+blank */
+function _rdRenderSentenceList(peers, rangeLabel) {
+  const answerRule  = peers[0].answerRule
+    ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
+  const introBlocks = (peers[0] && peers[0].introBlocks) || [];
+
+  const rowsHtml = peers.map(p => {
+    const saved      = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+    const isInline   = !!(p.tokens && p.tokens.length) || (p.text || '').includes('________');
+
+    if (isInline) {
+      const blankHtml = `<span class="ls-token-blank-wrap">
+        <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}"
+          onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button>
+        <span class="ls-token-blank-num">${p.qNum}</span>
+        <input type="text" class="ls-token-blank-input" data-qid="${escHtml(String(p.id))}"
+          value="${escHtml(saved)}" autocomplete="off" spellcheck="false">
+      </span>`;
+      let lineHtml;
+      if (p.tokens && p.tokens.length) {
+        lineHtml = p.tokens.map(tok =>
+          tok.type === 'text'  ? `<span class="ls-token-text">${escHtml(tok.value)}</span>`
+          : tok.type === 'blank' ? blankHtml : '').join('');
+      } else {
+        const parts = (p.text || '').split(/_{2,}/);
+        lineHtml = parts.length >= 2
+          ? escHtml(parts[0]) + blankHtml + escHtml(parts.slice(1).join('________'))
+          : escHtml(p.text || '') + ' ' + blankHtml;
+      }
+      return `<div class="ls-matching-inline-row">${lineHtml}</div>`;
+    }
+    return `<div class="rd-form-field">
+      <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}"
+        onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button>
+      <span class="rd-form-num">${p.qNum}.</span>
+      <span class="rd-form-label">${escHtml(p.text || '')}</span>
+      <input type="text" class="rd-form-input answer-input" data-qid="${p.id}"
+        value="${escHtml(saved)}" autocomplete="off" spellcheck="false" placeholder="…">
+    </div>`;
+  }).join('');
+
+  return `<div class="question-block">
+    <div class="question-number">${rangeLabel}</div>
+    ${answerRule}
+    ${_rdRenderIntroBlocks(introBlocks)}
+    <div class="ls-matching-questions">${rowsHtml}</div>
+  </div>`;
+}
+
+/* Render summary_completion as a flowing paragraph with inline blanks */
+function _rdRenderSummaryParagraph(peers, rangeLabel) {
+  const answerRule  = peers[0].answerRule
+    ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
+  const introBlocks = (peers[0] && peers[0].introBlocks) || [];
+
+  const buildBlank = (p) => {
+    const saved      = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+    return `<span class="ls-token-blank-wrap">
+      <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}"
+        onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button>
+      <span class="ls-token-blank-num">${p.qNum}</span>
+      <input type="text" class="ls-token-blank-input" data-qid="${escHtml(String(p.id))}"
+        value="${escHtml(saved)}" autocomplete="off" spellcheck="false">
+    </span>`;
+  };
+
+  let paraHtml;
+  if (peers[0].tokens && peers[0].tokens.length) {
+    // FORMAT B: full token array on first peer
+    const peerById = {};
+    peers.forEach(p => { peerById[String(p.id)] = p; });
+    paraHtml = peers[0].tokens.map(tok => {
+      if (tok.type === 'text')  return `<span class="ls-token-text">${escHtml(tok.value)}</span>`;
+      if (tok.type === 'blank') { const p = peerById[String(tok.id)]; return p ? buildBlank(p) : ''; }
+      return '';
+    }).join('');
+  } else {
+    // FORMAT A: each peer's "text" contains ________ as the blank
+    paraHtml = peers.map(p => {
+      const parts = (p.text || '').split(/_{2,}/);
+      return parts.length >= 2
+        ? escHtml(parts[0]) + buildBlank(p) + escHtml(parts.slice(1).join('________'))
+        : escHtml(p.text || '') + ' ' + buildBlank(p);
+    }).join(' ');
+  }
+
+  return `<div class="question-block">
+    <div class="question-number">${rangeLabel}</div>
+    ${answerRule}
+    ${_rdRenderIntroBlocks(introBlocks)}
+    <div class="rd-summary-para">${paraHtml}</div>
+  </div>`;
+}
+
 function _rdRenderDiagram(peers, rangeLabel) {
   const imgUrl     = (peers[0] && peers[0].groupImage) || '';
   const answerRule = peers[0].answerRule
     ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
-  const pinsHtml   = peers.map(p => {
-    const saved = appState.test.answers[p.id] || '';
-    return `<div class="rd-diagram-blank" style="left:${p.xPct||0}%;top:${p.yPct||0}%">
-      <span class="rd-diagram-label">${p.qNum || p.id}</span>
-      <input type="text" class="rd-diagram-input" data-qid="${p.id}"
-        value="${escHtml(saved)}" autocomplete="off" spellcheck="false"
-        aria-label="Blank ${p.qNum || p.id}: ${escHtml(p.text||'')}">
+  const introBlocks = (peers[0] && peers[0].introBlocks) || [];
+
+  // Detect variant: pin (x/y coordinates) vs fill/inline (no coordinates)
+  const hasPins = peers.some(p => p.xPct || p.yPct);
+
+  if (hasPins) {
+    // Pin variant: overlaid inputs on image + prompt list below
+    const pinsHtml = peers.map(p => {
+      const saved      = appState.test.answers[p.id] || '';
+      const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+      return `<div class="rd-diagram-blank" style="left:${p.xPct||0}%;top:${p.yPct||0}%">
+        <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}"
+          onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button>
+        <span class="rd-diagram-label">${p.qNum || p.id}</span>
+        <input type="text" class="rd-diagram-input" data-qid="${p.id}"
+          value="${escHtml(saved)}" autocomplete="off" spellcheck="false"
+          aria-label="Blank ${p.qNum || p.id}: ${escHtml(p.text||'')}">
+      </div>`;
+    }).join('');
+    const promptsHtml = peers.map(p =>
+      `<div class="rd-diagram-prompt"><strong>${p.qNum || p.id}.</strong> ${escHtml(p.text || '')}</div>`
+    ).join('');
+    return `<div class="question-block">
+      <div class="question-number">${rangeLabel}</div>
+      ${answerRule}
+      ${_rdRenderIntroBlocks(introBlocks)}
+      ${imgUrl
+        ? `<div class="rd-image-wrap"><img src="${escHtml(imgUrl)}" class="rd-diagram-img" alt="Diagram" draggable="false">${pinsHtml}</div>`
+        : '<div class="rd-no-image">No diagram image provided.</div>'}
+      ${promptsHtml ? `<div class="rd-diagram-prompts">${promptsHtml}</div>` : ''}
+    </div>`;
+  }
+
+  // Fill/inline variant: image left, questions right (mirrors listening diagram_matching)
+  const imgHtml = imgUrl
+    ? `<img src="${escHtml(imgUrl)}" class="ls-diagram-img" alt="Diagram">` : '';
+
+  const questionsHtml = peers.map(p => {
+    const saved      = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+    const isInline   = !!(p.tokens && p.tokens.length) || (p.text || '').includes('________');
+
+    if (isInline) {
+      const blankHtml = `<span class="ls-token-blank-wrap">
+        <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}"
+          onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button>
+        <span class="ls-token-blank-num">${p.qNum}</span>
+        <input type="text" class="ls-token-blank-input" data-qid="${escHtml(String(p.id))}"
+          value="${escHtml(saved)}" autocomplete="off" spellcheck="false">
+      </span>`;
+      let lineHtml;
+      if (p.tokens && p.tokens.length) {
+        lineHtml = p.tokens.map(tok =>
+          tok.type === 'text'  ? `<span class="ls-token-text">${escHtml(tok.value)}</span>`
+          : tok.type === 'blank' ? blankHtml : '').join('');
+      } else {
+        const parts = (p.text || '').split(/_{2,}/);
+        lineHtml = parts.length >= 2
+          ? escHtml(parts[0]) + blankHtml + escHtml(parts.slice(1).join('________'))
+          : escHtml(p.text || '') + ' ' + blankHtml;
+      }
+      return `<div class="ls-matching-inline-row">${lineHtml}</div>`;
+    }
+    return `<div class="ls-matching-row">
+      <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}"
+        onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button>
+      <span class="ls-match-qnum">${p.qNum}</span>
+      <span class="ls-match-label">${escHtml(p.text || '')}</span>
+      <input type="text" class="ls-matching-fill-input" data-qid="${escHtml(String(p.id))}"
+        value="${escHtml(saved)}" placeholder="…" autocomplete="off" spellcheck="false">
     </div>`;
   }).join('');
-  const promptsHtml = peers.map(p =>
-    `<div class="rd-diagram-prompt"><strong>${p.qNum || p.id}.</strong> ${p.text || ''}</div>`
-  ).join('');
-  return `<div class="question-block">
+
+  const questionsBlock = `${answerRule}
+    ${_rdRenderIntroBlocks(introBlocks)}
+    <div class="ls-matching-questions">${questionsHtml}</div>`;
+
+  const inner = imgHtml
+    ? `<div class="ls-diagram-layout">
+        <div class="ls-diagram-side">${imgHtml}</div>
+        <div class="ls-diagram-questions-side">${questionsBlock}</div>
+      </div>`
+    : questionsBlock;
+
+  return `<div class="question-block ls-matching-block">
     <div class="question-number">${rangeLabel}</div>
-    ${answerRule}
-    ${imgUrl
-      ? `<div class="rd-image-wrap"><img src="${escHtml(imgUrl)}" class="rd-diagram-img" alt="Diagram" draggable="false">${pinsHtml}</div>`
-      : '<div class="rd-no-image">No diagram image provided.</div>'}
-    ${promptsHtml ? `<div class="rd-diagram-prompts">${promptsHtml}</div>` : ''}
+    ${inner}
   </div>`;
 }
 

@@ -1214,32 +1214,44 @@ ALL MATCHING TYPES — rendered as:
    }
 
 9. sentence_completion
-   Each question = one sentence with a blank.
-   answer: word(s) from the passage
+   Each question = one sentence with a blank. Use "________" (8 underscores) in "text" as the blank placeholder.
+   All questions share one group — options panel shown once, each sentence on its own line.
+   Sentences with "________" render with the blank embedded inline; sentences without it render as label + blank.
+   Both styles can mix freely in one group.
    answerRule: e.g. "NO MORE THAN TWO WORDS"
+   groupId is auto-assigned — you do NOT need to add it manually.
 
 10. summary_completion
-    Each question = one blank in a summary paragraph.
-    answer: word(s) from the passage
+    A flowing paragraph with numbered blanks embedded inside. Use "________" (8 underscores) in each question's "text"
+    where the blank goes. All texts are joined into one paragraph on screen.
+    Alternatively, put a full token array on the first question (FORMAT B — see listening schema).
     answerRule: e.g. "ONE WORD ONLY"
+    groupId is auto-assigned — you do NOT need to add it manually.
 
-11. completion  (inline blanks embedded inside a block of text)
+11. completion  (inline blanks embedded inside a block of text — LEGACY, prefer summary_completion)
     No "questions" array — use "content" array instead.
     content: alternating text tokens and blank tokens.
     answerRule: e.g. "NO MORE THAN TWO WORDS AND/OR A NUMBER"
     *** See example below ***
 
 12. table_completion
-    groupId: unique string shared by all questions in this table.
-    Each question = one blank cell.
-    "row": row label, "col": column header
-    answer: word(s) from the passage
+    PREFERRED: rich format using "rows" → "cells" → segments array.
+      Each cell is an array of segments: {"t":"text","content":"..."} or {"t":"blank","id":N,"answer":["word"]}.
+      Multiple blanks per cell are supported. "columns" drives the header row.
+    LEGACY: "questions" with "row"/"col" per blank (one blank per cell only).
+    groupId is auto-assigned — you do NOT need to add it manually.
+    answerRule: e.g. "NO MORE THAN TWO WORDS"
 
 13. diagram_labeling
-    groupId: unique string shared by all labels.
-    image: URL to the diagram image.
-    Use "labels" array (not "questions").
-    "x" and "y": percentage position of the input on the image (0–100).
+    TWO variants — use whichever fits the source material:
+    PIN variant (x/y coordinates): image + numbered input boxes overlaid at exact positions.
+      Use "labels" array with "x", "y" (0–100 percent), and "answer".
+    FILL/INLINE variant (no x/y needed): image on left, labelled questions on right.
+      Each label's "text": short label → renders as  31 label [___];
+                           text with "________" → renders inline with blank embedded.
+      Both styles can mix freely in one group.
+    image: URL to the diagram/map/plan image.
+    groupId is auto-assigned — you do NOT need to add it manually.
     answer: word(s) from the passage
 
 --------------------------------------------------------------
@@ -1416,26 +1428,48 @@ FULL EXAMPLE
         {
           "type": "table_completion",
           "instructions": "Complete the table below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER from the passage.",
-          "groupId": "tbl_sleep_stages",
+          "answerRule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
           "columns": ["Sleep Stage", "Brain Wave", "Key Function"],
-          "questions": [
-            { "id": 26, "row": "Stage 1", "col": "Brain Wave",   "answer": "alpha waves"  },
-            { "id": 27, "row": "Stage 1", "col": "Key Function", "answer": "light sleep"   },
-            { "id": 28, "row": "Stage 3", "col": "Brain Wave",   "answer": "delta waves"   },
-            { "id": 29, "row": "Stage 3", "col": "Key Function", "answer": "cell repair"   },
-            { "id": 30, "row": "REM",     "col": "Brain Wave",   "answer": "mixed frequency" }
+          "rows": [
+            { "cells": [
+                [{"t":"text","content":"Stage 1"}],
+                [{"t":"blank","id":26,"answer":["alpha waves"]}],
+                [{"t":"blank","id":27,"answer":["light sleep"]}]
+            ]},
+            { "cells": [
+                [{"t":"text","content":"Stage 3"}],
+                [{"t":"blank","id":28,"answer":["delta waves"]}],
+                [{"t":"text","content":"cell repair and "},{"t":"blank","id":29,"answer":["growth hormone"]}]
+            ]},
+            { "cells": [
+                [{"t":"text","content":"REM"}],
+                [{"t":"blank","id":30,"answer":["mixed frequency"]}],
+                [{"t":"text","content":"memory consolidation"}]
+            ]}
           ]
         },
 
         {
           "type": "diagram_labeling",
-          "instructions": "Label the diagram of the sleep cycle. Write NO MORE THAN TWO WORDS from the passage.",
-          "groupId": "diag_sleep_cycle",
+          "instructions": "Label the diagram of the sleep cycle. Write ONE WORD ONLY from the passage.",
+          "answerRule": "ONE WORD ONLY",
           "image": "Resources/sleep-cycle.png",
           "labels": [
             { "id": 31, "x": 15, "y": 30, "answer": "light sleep" },
             { "id": 32, "x": 45, "y": 65, "answer": "deep sleep"  },
             { "id": 33, "x": 78, "y": 25, "answer": "REM sleep"   }
+          ]
+        },
+
+        {
+          "type": "diagram_labeling",
+          "instructions": "Complete the diagram labels below. Write ONE WORD ONLY from the passage.",
+          "answerRule": "ONE WORD ONLY",
+          "image": "Resources/sleep-process.png",
+          "labels": [
+            { "id": 34, "text": "adenosine",                                        "answer": "adenosine"  },
+            { "id": 35, "text": "Brain releases ________ to induce drowsiness",     "answer": "melatonin"  },
+            { "id": 36, "text": "core body temperature",                            "answer": "drops"      }
           ]
         }
 
@@ -1456,13 +1490,25 @@ true_false_not_given, matching_headings, sentence_completion, and
 summary_completion. Passage: [paste passage here]"
 
 - For ALL matching types (matching_headings, matching_information, matching_features,
-  matching_sentence_endings): ALWAYS assign a shared "groupId" to all questions in the
-  group so the options list is shown ONCE at the top. Put "options" and "options_heading"
-  on the GROUP object (not on individual questions). Format options as "A. text", "B. text".
-- For completion (inline): use the "content" array with alternating
-  text/blank tokens. List answer keys separately in "questions".
-- For table_completion: every blank cell needs its own question entry
-  with matching "row" and "col" values.
+  matching_sentence_endings): Put "options" and "options_heading" on the GROUP object
+  (not on individual questions). Format options as "A. text", "B. text". groupId is
+  auto-assigned — you do NOT need to add it manually. Options panel is shown ONCE at top.
+- For sentence_completion: put "________" (8 underscores) in each question's "text" where
+  the blank goes. Sentences render as a list, each with its blank inline. Put "answerRule"
+  on the group. groupId is auto-assigned.
+- For summary_completion: put "________" (8 underscores) in each question's "text" where
+  the blank goes. All sentences are joined into one flowing paragraph on screen.
+  Put "answerRule" on the group. groupId is auto-assigned.
+- For table_completion: PREFERRED rich format — use "rows" → "cells" → segments.
+  Each cell is an array: [{"t":"text","content":"..."},{"t":"blank","id":N,"answer":["word"]}].
+  Multiple blanks per cell are supported. "columns" drives the header row.
+  LEGACY: "questions" with "row"/"col" still works (one blank per cell only).
+  groupId is auto-assigned. Put "answerRule" on the group.
+- For diagram_labeling: TWO variants:
+  (A) PIN — use "labels" with "x","y" (0–100) for exact overlay positions on image.
+  (B) FILL/INLINE — omit "x","y"; use "text" on each label: short label → renders as label+blank;
+      text with "________" → blank embedded inline. Image shown left, questions right.
+  Both variants: put "answerRule" on the group. groupId is auto-assigned.
 - Slash-separated answers are accepted for short/completion types
   e.g. "cost effective/cost-effective"
 - INTRO BLOCKS: add "intro_blocks" to ANY group to show non-answerable
@@ -2724,7 +2770,10 @@ function _rdGroupsToFlat(passage, pi) {
     };
     const type = typeMap[rawType] || rawType;
     const isGfx   = type === 'diagram_labeling';
-    const isGroup = type === 'table_completion' || type === 'diagram_labeling';
+    const isGroup = ['table_completion','diagram_labeling',
+                     'sentence_completion','summary_completion',
+                     'matching_headings','matching_information','matching_features',
+                     'matching_sentence_endings'].includes(type);
     const groupId = group.groupId || (isGroup ? `grp_p${pi}_g${gi}_${Date.now()}` : '');
     const items   = isGfx ? (group.labels || group.questions || []) : (group.questions || []);
 
@@ -2749,6 +2798,7 @@ function _rdGroupsToFlat(passage, pi) {
               q.tableRows    = group.rows;
               q.tableColumns = group.columns || [];
               if (group.intro_blocks && group.intro_blocks.length) q.introBlocks = group.intro_blocks;
+              if (group.answerRule || group.answer_rule) q.answerRule = group.answerRule || group.answer_rule;
             }
             flat.push(q);
             bi++;
@@ -2774,6 +2824,9 @@ function _rdGroupsToFlat(passage, pi) {
         ...(isGfx   ? { groupImage: group.image || '', xPct: item.x || 0, yPct: item.y || 0 } : {}),
         ...(type === 'table_completion' ? { rowContext: item.row || '', colContext: item.col || '' } : {}),
         ...(ii === 0 && group.intro_blocks && group.intro_blocks.length ? { introBlocks: group.intro_blocks } : {}),
+        ...(ii === 0 && (group.answerRule || group.answer_rule) ? { answerRule: group.answerRule || group.answer_rule } : {}),
+        ...(ii === 0 && (group.options_heading || group.optionsHeading) ? { optionsHeading: group.options_heading || group.optionsHeading } : {}),
+        ...(item.tokens ? { tokens: item.tokens } : {}),
       };
       flat.push(q);
     });
