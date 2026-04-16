@@ -259,21 +259,22 @@ function renderQNavigator() {
 
 function jumpToQuestion(idx) {
   const qs = appState.test.flatQuestions;
-  // If jumping into a group, always land on its first peer
-  const dest = qs[idx];
-  if (dest && dest.groupId) {
-    const fp = qs.findIndex(fq => fq.groupId === dest.groupId);
-    if (fp !== -1) idx = fp;
-  }
   const targetQ = qs[idx];
   const currentQ = qs[appState.test.currentQ];
+
+  // For grouped questions, scroll anchor is always the first peer's element;
+  // but currentQ is set to the exact peer clicked so flagging works correctly.
+  const firstPeer = (targetQ && targetQ.groupId)
+    ? qs.find(fq => fq.groupId === targetQ.groupId)
+    : targetQ;
+  const anchorId = (firstPeer || targetQ)?.id;
 
   // Listening: if target is in the same section already rendered, just scroll
   if (targetQ && targetQ.sectionId && currentQ && currentQ.sectionId === targetQ.sectionId) {
     appState.test.currentQ = idx;
     renderQNavigator();
     setTimeout(() => {
-      const el = document.getElementById('ls-q-' + targetQ.id);
+      const el = document.getElementById('ls-q-' + anchorId);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 50);
     return;
@@ -287,7 +288,7 @@ function jumpToQuestion(idx) {
   renderQNavigator();
   if (targetQ && targetQ.passageId) {
     setTimeout(() => {
-      const card = document.getElementById('q-card-' + targetQ.id);
+      const card = document.getElementById('q-card-' + anchorId);
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 50);
   }
@@ -357,11 +358,17 @@ function navigateQuestion(dir) {
 function toggleFlag() {
   const q = appState.test.flatQuestions[appState.test.currentQ];
   if (!q) return;
-  if (appState.test.flags.has(q.id)) appState.test.flags.delete(q.id);
-  else appState.test.flags.add(q.id);
-  const flagged = appState.test.flags.has(q.id);
-  const btn = document.getElementById('flagBtn');
-  if (btn) btn.classList.toggle('active', flagged);
+  toggleFlagById(q.id);
+  const flagBtn = document.getElementById('flagBtn');
+  if (flagBtn) flagBtn.classList.toggle('active', appState.test.flags.has(q.id));
+}
+
+function toggleFlagById(qid) {
+  if (appState.test.flags.has(qid)) appState.test.flags.delete(qid);
+  else appState.test.flags.add(qid);
+  const flagged = appState.test.flags.has(qid);
+  document.querySelectorAll(`.q-inline-flag[data-qid="${CSS.escape(qid)}"]`)
+    .forEach(btn => btn.classList.toggle('active', flagged));
   renderQNavigator();
   showToast(flagged ? 'Question flagged for review.' : 'Flag removed.');
 }
@@ -755,7 +762,8 @@ function _rdRenderQuestionsPane(passageQs, firstIdx) {
     if (pq.groupId) {
       const peers = passageQs.filter(x => x.groupId === pq.groupId);
       peers.forEach(p => rendered.add(String(p.id)));
-      cards.push(`<div class="reading-question-card">${_rdRenderGroupBlock(peers)}</div>`);
+      // Give the card an id on the first peer so jumpToQuestion can scroll to it.
+      cards.push(`<div class="reading-question-card" id="q-card-${peers[0].id}">${_rdRenderGroupBlock(peers)}</div>`);
     } else {
       rendered.add(sid);
       cards.push(`<div class="reading-question-card" id="q-card-${pq.id}">${_rdRenderQuestion(pq, firstIdx + i)}</div>`);
@@ -914,10 +922,13 @@ function _rdRenderMatchingGroup(peers, rangeLabel) {
     })
   ].join('');
 
-  // Question rows: [Q#] [text] [dropdown]
+  // Question rows: [flag] [Q#] [text] [dropdown]
   const questionsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
     return `<div class="ls-matching-row">
+      <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}"
+        onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button>
       <span class="ls-match-qnum">${escHtml(String(p.qNum || p.id))}</span>
       <span class="ls-match-label">${escHtml(p.text || '')}</span>
       <select class="ls-matching-select" data-qid="${escHtml(String(p.id))}">${buildDd(saved)}</select>
@@ -960,6 +971,41 @@ function _rdRenderDiagram(peers, rangeLabel) {
 }
 
 function _rdRenderTable(peers, rangeLabel) {
+  const answerRule = peers[0].answerRule
+    ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
+
+  // Rich format: rows/cells/segments
+  if (peers[0] && peers[0].tableRows) {
+    const peerByQNum = {};
+    peers.forEach(p => { peerByQNum[String(p.qNum)] = p; });
+    const columns = peers[0].tableColumns || [];
+    const headerHtml = `<tr>${columns.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr>`;
+    const bodyHtml = peers[0].tableRows.map(row =>
+      `<tr>${(row.cells || []).map(cell => {
+        const segHtml = (cell || []).map(seg => {
+          if (seg.t === 'text') return escHtml(seg.content || '');
+          if (seg.t === 'blank') {
+            const p = peerByQNum[String(seg.id)];
+            if (!p) return `<span class="ls-token-blank-wrap"><span class="ls-token-blank-num">${seg.id}</span><input type="text" class="ls-token-blank-input" placeholder="(${seg.id})"></span>`;
+            const saved = appState.test.answers[p.id] || '';
+            const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+            return `<span class="ls-token-blank-wrap"><button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}" onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button><span class="ls-token-blank-num">${p.qNum}</span><input type="text" class="ls-token-blank-input" data-qid="${escHtml(String(p.id))}" value="${escHtml(saved)}" autocomplete="off" spellcheck="false" aria-label="Blank ${p.qNum}"></span>`;
+          }
+          return '';
+        }).join('');
+        return `<td>${segHtml}</td>`;
+      }).join('')}</tr>`
+    ).join('');
+    return `<div class="question-block">
+      <div class="question-number">${rangeLabel}</div>
+      ${answerRule}
+      <div class="rd-table-wrap"><table class="rd-completion-table">
+        <thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  // Legacy format: rowContext / colContext
   const rowKeys = [], colKeys = [];
   peers.forEach(p => {
     if (p.rowContext && !rowKeys.includes(p.rowContext)) rowKeys.push(p.rowContext);
@@ -967,8 +1013,6 @@ function _rdRenderTable(peers, rangeLabel) {
   });
   const cellMap = {};
   peers.forEach(p => { cellMap[`${p.rowContext}||${p.colContext}`] = p; });
-  const answerRule = peers[0].answerRule
-    ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
   const headerHtml = `<tr><th></th>${colKeys.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr>`;
   const bodyHtml   = rowKeys.map(row => `<tr>
     <td class="rd-table-row-label">${escHtml(row)}</td>
@@ -976,7 +1020,8 @@ function _rdRenderTable(peers, rangeLabel) {
       const p = cellMap[`${row}||${col}`];
       if (!p) return '<td></td>';
       const saved = appState.test.answers[p.id] || '';
-      return `<td><input type="text" class="rd-table-input" data-qid="${p.id}"
+      const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+      return `<td><button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}" onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button><input type="text" class="rd-table-input" data-qid="${p.id}"
         value="${escHtml(saved)}" autocomplete="off" spellcheck="false"
         aria-label="Blank ${p.qNum || p.id}" placeholder="(${p.qNum || p.id})"></td>`;
     }).join('')}
@@ -993,7 +1038,10 @@ function _rdRenderTable(peers, rangeLabel) {
 function _rdRenderFormList(peers, rangeLabel) {
   const fieldsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
     return `<div class="rd-form-field">
+      <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(p.id))}"
+        onclick="toggleFlagById('${escHtml(String(p.id))}')" title="Flag Q${p.qNum}">⚑</button>
       <span class="rd-form-num">${p.qNum || p.id}.</span>
       <span class="rd-form-label">${p.text || ''}</span>
       <input type="text" class="rd-form-input answer-input" data-qid="${p.id}"

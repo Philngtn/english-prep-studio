@@ -72,18 +72,24 @@ function _expandOptionsRange(str) {
   return out;
 }
 
-/* ── Renderer: Diagram Matching (image + dropdowns) ──────────── */
+/* ── Renderer: Diagram Matching (image left + questions right) ── */
 function lsRenderDiagramMatchingGroup(peers, rangeLabel) {
   const answerRule    = (peers[0] && peers[0].answerRule)    || '';
   const matchQuestion = (peers[0] && peers[0].matchQuestion) || '';
   const instruction   = (peers[0] && peers[0].instruction)   || '';
   const imgUrl        = (peers[0] && peers[0].groupImage)    || '';
+  const matchType     = (peers[0] && peers[0].matchType)     || 'select';
 
   const optionsRange = (peers[0] && peers[0].optionsRange) || '';
   const rawOptions   = (peers[0] && peers[0].options)      || [];
   const letters = optionsRange
     ? _expandOptionsRange(optionsRange)
     : rawOptions.map(o => String(o).trim()).filter(Boolean);
+
+  // Resolve variant: 'inline' if explicit; 'select' only when options exist; else 'fill'
+  const resolvedMatchType = matchType === 'inline' ? 'inline'
+    : (matchType === 'select' && letters.length > 0) ? 'select'
+    : 'fill';
 
   const questionHtml = matchQuestion
     ? `<div class="ls-matching-question">${escHtml(matchQuestion)}</div>` : '';
@@ -93,28 +99,75 @@ function lsRenderDiagramMatchingGroup(peers, rangeLabel) {
 
   const questionsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
-    const ddOpts = [`<option value="">Select…</option>`,
-      ...letters.map(letter => {
-        const sel = letter.toUpperCase() === (saved || '').toUpperCase() ? ' selected' : '';
-        return `<option value="${escHtml(letter)}"${sel}>${escHtml(letter)}</option>`;
-      })
-    ].join('');
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+
+    if (resolvedMatchType === 'inline') {
+      // Inline blank: text contains ________ as placeholder, or use tokens
+      const blankHtml = `<span class="ls-token-blank-wrap">
+        <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+          onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
+        <span class="ls-token-blank-num">${p.qNum}</span>
+        <input type="text" class="ls-token-blank-input" data-qid="${p.id}"
+          value="${escHtml(saved)}" oninput="saveAnswer('${p.id}',this.value)"
+          autocomplete="off" spellcheck="false">
+        ${lsJumpBtn(p.questionStart)}
+      </span>`;
+      let lineHtml;
+      if (p.tokens && p.tokens.length) {
+        lineHtml = p.tokens.map(tok => {
+          if (tok.type === 'text')  return `<span class="ls-token-text">${escHtml(tok.value)}</span>`;
+          if (tok.type === 'blank') return blankHtml;
+          return '';
+        }).join('');
+      } else {
+        const parts = (p.text || '').split(/_{2,}/);
+        lineHtml = parts.length >= 2
+          ? escHtml(parts[0]) + blankHtml + escHtml(parts.slice(1).join('________'))
+          : escHtml(p.text || '') + ' ' + blankHtml;
+      }
+      return `<div class="ls-matching-inline-row">${lineHtml}</div>`;
+    }
+
+    let inputHtml;
+    if (resolvedMatchType === 'fill') {
+      inputHtml = `<input type="text" class="ls-matching-fill-input" data-qid="${p.id}"
+        value="${escHtml(saved)}" oninput="saveAnswer('${p.id}',this.value)"
+        placeholder="…" autocomplete="off" spellcheck="false">`;
+    } else {
+      const ddOpts = [`<option value="">Select…</option>`,
+        ...letters.map(letter => {
+          const sel = letter.toUpperCase() === (saved || '').toUpperCase() ? ' selected' : '';
+          return `<option value="${escHtml(letter)}"${sel}>${escHtml(letter)}</option>`;
+        })
+      ].join('');
+      inputHtml = `<select class="ls-matching-select" data-qid="${p.id}"
+        onchange="saveAnswer('${p.id}',this.value)">${ddOpts}</select>`;
+    }
     return `<div class="ls-matching-row">
+      <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+        onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
       <span class="ls-match-qnum">${p.qNum}</span>
       <span class="ls-match-label">${escHtml(p.text || '')}</span>
-      <select class="ls-matching-select" data-qid="${p.id}"
-        onchange="saveAnswer('${p.id}',this.value)">${ddOpts}</select>
+      ${inputHtml}
       ${lsJumpBtn(p.questionStart)}
     </div>`;
   }).join('');
 
-  return `<div class="question-block ls-matching-block" data-group="${escHtml(peers[0].groupId || '')}">
-    <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
-    ${questionHtml}
+  const questionsBlock = `${questionHtml}
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
-    ${imgHtml}
-    <div class="ls-matching-questions">${questionsHtml}</div>
+    <div class="ls-matching-questions">${questionsHtml}</div>`;
+
+  const inner = imgHtml
+    ? `<div class="ls-diagram-layout">
+        <div class="ls-diagram-side">${imgHtml}</div>
+        <div class="ls-diagram-questions-side">${questionsBlock}</div>
+      </div>`
+    : questionsBlock;
+
+  return `<div class="question-block ls-matching-block" data-group="${escHtml(peers[0].groupId || '')}">
+    <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
+    ${inner}
   </div>`;
 }
 
@@ -127,9 +180,13 @@ function lsRenderFlowGroup(peers, rangeLabel) {
     const saved = appState.test.answers[p.id] || '';
     const pre = p.prefix || '';
     const suf = p.suffix || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
     return `<div class="ls-flow-step">
       ${p.nodeNum ? `<div class="ls-flow-node">${p.nodeNum}</div>` : ''}
       <div class="ls-flow-content">
+        <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+          onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
+        <span class="ls-token-blank-num" style="margin-right:0.2rem;">${p.qNum}</span>
         ${escHtml(pre)}<input type="text" class="ls-flow-input" value="${escHtml(saved)}"
           data-qid="${p.id}"
           oninput="saveAnswer('${p.id}',this.value)" placeholder="...">${escHtml(suf)} ${lsJumpBtn(p.questionStart)}
@@ -150,6 +207,39 @@ function lsRenderTableGroup(peers, rangeLabel) {
   const answerRule  = (peers[0] && peers[0].answerRule)  || '';
   const instruction = (peers[0] && peers[0].instruction) || '';
 
+  // Rich format: rows / cells / segments
+  if (peers[0] && peers[0].tableRows) {
+    const peerByQNum = {};
+    peers.forEach(p => { peerByQNum[String(p.qNum)] = p; });
+    const columns = peers[0].tableColumns || [];
+    const headerHtml = `<tr>${columns.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr>`;
+    const bodyHtml = peers[0].tableRows.map(row =>
+      `<tr>${(row.cells || []).map(cell => {
+        const segHtml = (cell || []).map(seg => {
+          if (seg.t === 'text') return escHtml(seg.content || '');
+          if (seg.t === 'blank') {
+            const p = peerByQNum[String(seg.id)];
+            if (!p) return `<span class="ls-token-blank-wrap"><span class="ls-token-blank-num">${seg.id}</span><input type="text" class="ls-token-blank-input" placeholder="(${seg.id})"></span>`;
+            const saved = appState.test.answers[p.id] || '';
+            const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+            return `<span class="ls-token-blank-wrap"><button class="q-inline-flag${flagActive}" data-qid="${p.id}" onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button><span class="ls-token-blank-num">${p.qNum}</span><input type="text" class="ls-token-blank-input" data-qid="${p.id}" value="${escHtml(saved)}" oninput="saveAnswer('${p.id}',this.value)" autocomplete="off" spellcheck="false"></span>${lsJumpBtn(p.questionStart)}`;
+          }
+          return '';
+        }).join('');
+        return `<td>${segHtml}</td>`;
+      }).join('')}</tr>`
+    ).join('');
+    return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
+      <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
+      ${lsInstruction(instruction)}
+      ${lsAnswerRule(answerRule)}
+      <div class="ls-table-wrap"><table class="ls-completion-table">
+        <thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  // Legacy format: rowContext / colContext
   const rowKeys = []; const colKeys = [];
   peers.forEach(p => {
     if (p.rowContext && !rowKeys.includes(p.rowContext)) rowKeys.push(p.rowContext);
@@ -165,9 +255,8 @@ function lsRenderTableGroup(peers, rangeLabel) {
       const p = cellMap[`${row}||${col}`];
       if (!p) return '<td></td>';
       const saved = appState.test.answers[p.id] || '';
-      return `<td><input type="text" class="ls-table-cell-input" value="${escHtml(saved)}"
-        data-qid="${p.id}"
-        oninput="saveAnswer('${p.id}',this.value)">${p.questionStart != null ? lsJumpBtn(p.questionStart) : ''}</td>`;
+      const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
+      return `<td><button class="q-inline-flag${flagActive}" data-qid="${p.id}" onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button><input type="text" class="ls-table-cell-input" value="${escHtml(saved)}" data-qid="${p.id}" oninput="saveAnswer('${p.id}',this.value)">${p.questionStart != null ? lsJumpBtn(p.questionStart) : ''}</td>`;
     }).join('')}
   </tr>`).join('');
 
@@ -189,7 +278,10 @@ function lsRenderFormGroup(peers, rangeLabel) {
 
   const fieldsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
     return `<div class="ls-form-field">
+      <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+        onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
       <label class="ls-form-label">${escHtml(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
       <input type="text" class="ls-form-input" value="${escHtml(saved)}"
         data-qid="${p.id}"
@@ -249,9 +341,12 @@ function lsRenderNoteGroup(peers, rangeLabel) {
         const saved      = appState.test.answers[p.id] || '';
         const beforeHtml = p.before ? `<span class="ls-note-before">${escHtml(p.before)}</span>` : '';
         const afterHtml  = p.after  ? `<span class="ls-note-after">${escHtml(p.after)}</span>`   : '';
+        const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
         return `<div class="ls-note-inline-line">
           ${beforeHtml}
           <span class="ls-token-blank-wrap">
+            <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+              onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
             <span class="ls-token-blank-num">${p.qNum}</span>
             <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
               data-qid="${p.id}" oninput="saveAnswer('${p.id}',this.value)" placeholder="...">
@@ -277,7 +372,10 @@ function lsRenderNoteGroup(peers, rangeLabel) {
   // Legacy format: simple label → input rows
   const linesHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
     return `<div class="ls-note-line">
+      <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+        onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
       <span class="ls-note-label">${escHtml(p.text || `Q${p.qNum}`)}:</span>
       <input type="text" class="ls-note-input" value="${escHtml(saved)}"
         data-qid="${p.id}"
@@ -302,7 +400,10 @@ function _lsNcRenderTokens(tokens, plainText, blankMap) {
       const peer = blankMap[tok.id];
       if (!peer) return '';
       const saved = appState.test.answers[peer.id] || '';
+      const flagActive = appState.test.flags.has(peer.id) ? ' active' : '';
       return `<span class="ls-token-blank-wrap">
+        <button class="q-inline-flag${flagActive}" data-qid="${peer.id}"
+          onclick="toggleFlagById('${peer.id}')" title="Flag Q${peer.qNum}">⚑</button>
         <span class="ls-token-blank-num">${peer.qNum}</span>
         <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
           data-qid="${peer.id}" oninput="saveAnswer('${peer.id}',this.value)" placeholder="...">
@@ -330,7 +431,10 @@ function lsRenderSentenceGroup(peers, rangeLabel) {
           // Find the peer whose qNum matches the blank id
           const peer = blankMap[tok.id] || p;
           const saved = appState.test.answers[peer.id] || '';
+          const flagActive = appState.test.flags.has(peer.id) ? ' active' : '';
           return `<span class="ls-token-blank-wrap">
+            <button class="q-inline-flag${flagActive}" data-qid="${peer.id}"
+              onclick="toggleFlagById('${peer.id}')" title="Flag Q${peer.qNum}">⚑</button>
             <span class="ls-token-blank-num">${peer.qNum}</span>
             <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
               data-qid="${peer.id}"
@@ -343,7 +447,10 @@ function lsRenderSentenceGroup(peers, rangeLabel) {
     }
     // Fallback: plain label + input
     const saved = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
     return `<div class="ls-form-field">
+      <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+        onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
       <label class="ls-form-label">${escHtml(p.text || `Q${p.qNum}`)} ${lsJumpBtn(p.questionStart)}</label>
       <input type="text" class="ls-form-input" value="${escHtml(saved)}"
         data-qid="${p.id}"
@@ -385,7 +492,10 @@ function lsRenderSummaryGroup(peers, rangeLabel) {
       if (tok.type === 'blank') {
         const peer = blankMap[tok.id] || peers[0];
         const saved = appState.test.answers[peer.id] || '';
+        const flagActive = appState.test.flags.has(peer.id) ? ' active' : '';
         return `<span class="ls-token-blank-wrap">
+          <button class="q-inline-flag${flagActive}" data-qid="${peer.id}"
+            onclick="toggleFlagById('${peer.id}')" title="Flag Q${peer.qNum}">⚑</button>
           <span class="ls-token-blank-num">${peer.qNum}</span>
           <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
             data-qid="${peer.id}"
@@ -399,7 +509,10 @@ function lsRenderSummaryGroup(peers, rangeLabel) {
     // Render as one flowing paragraph with inline numbered inputs.
     const paragraph = peers.map(p => {
       const saved = appState.test.answers[p.id] || '';
+      const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
       const blank = `<span class="ls-token-blank-wrap">
+        <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+          onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
         <span class="ls-token-blank-num">${p.qNum}</span>
         <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
           data-qid="${p.id}" oninput="saveAnswer('${p.id}',this.value)">
@@ -462,10 +575,13 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
     return ddOpts;
   };
 
-  // Question rows: [Q#] [year/label] [dropdown] — inline, tightly grouped
+  // Question rows: [flag] [Q#] [year/label] [dropdown] — inline, tightly grouped
   const questionsHtml = peers.map(p => {
     const saved = appState.test.answers[p.id] || '';
+    const flagActive = appState.test.flags.has(p.id) ? ' active' : '';
     return `<div class="ls-matching-row">
+      <button class="q-inline-flag${flagActive}" data-qid="${p.id}"
+        onclick="toggleFlagById('${p.id}')" title="Flag Q${p.qNum}">⚑</button>
       <span class="ls-match-qnum">${p.qNum}</span>
       <span class="ls-match-label">${escHtml(p.text || '')}</span>
       <select class="ls-matching-select" data-qid="${p.id}"

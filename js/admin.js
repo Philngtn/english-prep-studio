@@ -294,7 +294,6 @@ function _adminFlushAutoSave() {
 }
 function _adminGuard(action) {
   _adminFlushAutoSave();  // Save any pending changes before navigating away
-  if (_adminDirty && !confirm('You have unsaved changes. Leave without saving?')) return;
   _adminClearDirty();
   action();
 }
@@ -935,7 +934,25 @@ QUESTION TYPES
      ]
    }
 
-5. table_completion
+5. table_completion — rich format (preferred)
+   Each cell is an array of segments: {"t":"text","content":"..."} or {"t":"blank","id":N,"answer":["word"],"start":S}
+   Cells with no blank use a single text segment. "columns" drives the header row.
+   { "type": "table_completion",
+     "columns": ["Subject", "Recommended Page Design"],
+     "answer_rule": "ONE WORD ONLY",
+     "rows": [
+       { "cells": [
+           [ {"t":"blank","id":25,"answer":["Law"],"start":55}, {"t":"text","content":" Studies"} ],
+           [ {"t":"text","content":"flowchart, showing courtroom processes and "}, {"t":"blank","id":26,"answer":["penalties"],"start":58} ]
+       ]},
+       { "cells": [
+           [ {"t":"text","content":"Culture Studies"} ],
+           [ {"t":"text","content":"table or spider graph, linking "}, {"t":"blank","id":27,"answer":["related"],"start":63}, {"t":"text","content":" thoughts etc."} ]
+       ]}
+     ]
+   }
+
+   Legacy format (still supported — one blank per cell with row/col lookup):
    { "type": "table_completion",
      "columns": ["Activity","Day","Cost"],
      "answer_rule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
@@ -1010,14 +1027,45 @@ QUESTION TYPES
       ]
     }
 
-11. diagram_matching — diagram image above letter-selection dropdowns
-    "question"      — goal text ("Complete the timetable.")
-    "instruction"   — rule shown to student ("Write the correct letter, A–J, for each answer.")
-    "image"         — URL of the diagram/timetable image
-    "options_range" — letter range e.g. "A-J" (preferred, auto-expands to A B C ... J)
-    "options"       — explicit letter array e.g. ["A","B","C"] (use if range doesn't apply)
-    "text" on each question — the row label (e.g. "Teacher-led discussion", "Monday 9am")
+11. diagram_matching — image on left, labelled questions on right
+    "match_type"  — THREE variants:
+      "fill"    (DEFAULT) — short label beside a blank, e.g. "inlet pipe [____]"
+      "inline"  — full sentence with blank embedded, e.g. "Molecule splits, producing [____] for analysis"
+      "select"  — student picks a letter from a dropdown (requires options_range or options)
+    "question"    — goal text shown above the question block
+    "instruction" — answering rule ("Write ONE WORD ONLY." / "Write the correct letter, A–J.")
+    "answer_rule" — short rule shown inline above questions
+    "image"       — URL of the diagram/map/plan image (renders on LEFT; questions on RIGHT)
+
+    Variant A — fill (DEFAULT — short label + blank):
     { "type": "diagram_matching",
+      "question": "Label the diagram.",
+      "instruction": "Write ONE WORD ONLY for each answer.",
+      "answer_rule": "ONE WORD ONLY",
+      "image": "https://SUPABASE_URL/storage/v1/object/public/media/diagrams/turbine.jpg",
+      "questions": [
+        { "id": 21, "text": "inlet pipe",    "answer": ["turbine"],   "start": 200 },
+        { "id": 22, "text": "output shaft",  "answer": ["generator"], "start": 215 }
+      ]
+    }
+
+    Variant B — inline (sentence with blank embedded — use when the label is a full phrase):
+    Use "________" (8 underscores) in "text" as the blank placeholder.
+    { "type": "diagram_matching",
+      "match_type": "inline",
+      "question": "Complete the diagram labels.",
+      "instruction": "Write ONE WORD ONLY for each answer.",
+      "answer_rule": "ONE WORD ONLY",
+      "image": "https://SUPABASE_URL/storage/v1/object/public/media/diagrams/process.jpg",
+      "questions": [
+        { "id": 23, "text": "Molecule splits, producing ________ for analysis", "answer": ["fragments"], "start": 210 },
+        { "id": 24, "text": "________ filter removes large particles",           "answer": ["Mesh"],      "start": 218 }
+      ]
+    }
+
+    Variant C — select (matching, student picks from letter dropdown):
+    { "type": "diagram_matching",
+      "match_type": "select",
       "question": "Complete the timetable.",
       "instruction": "Write the correct letter, A–J, for each answer.",
       "answer_rule": "ONE LETTER ONLY",
@@ -1054,7 +1102,8 @@ FOR sentence_completion with inline blanks → use "tokens" array per question.
 FOR summary_completion → PREFERRED: give each question a "text" field containing the sentence with ________ as the blank placeholder (all sentences render as one flowing paragraph). ALTERNATIVE: put all tokens on the first question only; other questions just need id+answer+start.
 FOR multiple_choice two answers → add "multi": true, "count": 2 on the group.
 FOR matching → "question" is the main question text (e.g. "Which event... took place in each year?"); "instruction" is the secondary line (e.g. "Choose SIX answers... write the correct letter, A–H, next to Questions"); "options" is the shared A–H list (format: "A. description"); "text" on each question is the label/year being matched; add "options_heading" for the bold title above the list.
-FOR diagram_matching → use "options_range" (e.g. "A-J") for a compact letter range; set "question" to the completion goal and "instruction" to the letter-selection rule; "text" on each question is the row label shown left of the dropdown (e.g. "Teacher-led discussion"). "image" must be a full URL to the uploaded diagram image (upload via Admin first). Do NOT use map_labeling, diagram_labeling, or plan_labeling — those are removed. Use diagram_matching for ALL timetable, map, plan, and diagram question sets.
+FOR diagram_matching → THREE variants. (A) DEFAULT "fill": short label + blank beside it — omit "match_type" or set "match_type":"fill"; "text" is the short label (e.g. "inlet pipe"). (B) "match_type":"inline": full sentence with blank embedded — use "________" (8 underscores) in "text" where the blank goes, e.g. "Molecule splits, producing ________ for analysis"; use this when the label context is a complete phrase. (C) "match_type":"select": student picks a letter from a dropdown; also provide "options_range" (e.g. "A-J"). Always set "question" to the goal sentence, "instruction" to the answering rule, "answer_rule" to the short constraint. "image" is a full URL; renders LEFT with questions RIGHT. Do NOT use map_labeling, diagram_labeling, or plan_labeling.
+FOR table_completion → PREFERRED: use the rich "rows" format where each cell is an array of segments: {"t":"text","content":"..."} for plain text or {"t":"blank","id":N,"answer":["word"],"start":S} for a numbered blank. Multiple blanks per cell are supported. "columns" is the header row. LEGACY: "questions" with "row"/"col" per blank is still supported but cannot express multiple blanks in one cell or text around the blank.
 
 TRANSCRIPT:
 [PASTE TRANSCRIPT HERE]
@@ -1562,6 +1611,37 @@ function _lsGroupsToFlat(section, si) {
       return;  // handled — skip generic items loop below
     }
 
+    // Rich table_completion: rows / cells / segments
+    if (type === 'table_completion' && group.rows) {
+      let bi = 0;
+      group.rows.forEach(row => {
+        (row.cells || []).forEach(cell => {
+          (cell || []).forEach(seg => {
+            if (seg.t !== 'blank') return;
+            const ans = Array.isArray(seg.answer) ? seg.answer[0] : (seg.answer || '');
+            const q = {
+              id:            `t_s${si}_g${gi}_b${bi}_${Date.now()}`,
+              qNum:          seg.id,
+              type:          'table_completion',
+              text:          '',
+              answer:        ans,
+              questionStart: seg.start || 0,
+              groupId,
+              answerRule:    bi === 0 ? answerRule  : '',
+              instruction:   bi === 0 ? instruction : '',
+            };
+            if (bi === 0) {
+              q.tableRows    = group.rows;
+              q.tableColumns = group.columns || [];
+            }
+            flat.push(q);
+            bi++;
+          });
+        });
+      });
+      return;  // handled
+    }
+
     items.forEach((item, ii) => {
       const ans = Array.isArray(item.answer) ? item.answer[0] : (item.answer || '');
       const q = {
@@ -1582,15 +1662,17 @@ function _lsGroupsToFlat(section, si) {
         q.matchQuestion  = group.question || '';
       }
       if (type === 'diagram_matching' && ii === 0) {
-        q.groupImage    = group.image          || '';
-        q.optionsRange  = group.options_range  || '';
+        q.groupImage    = group.image                                   || '';
+        q.optionsRange  = group.options_range  || group.optionsRange   || '';
         q.options       = group.options        || [];
         q.matchQuestion = group.question       || '';
+        q.matchType     = group.match_type     || group.matchType      || 'select';
       }
       if (type === 'flow_chart')       { q.nodeNum = item.node || (ii + 1); q.prefix = item.prefix || ''; q.suffix = item.suffix || ''; }
       if (type === 'table_completion') { q.rowContext = item.row || ''; q.colContext = item.col || ''; q.groupColumns = group.columns || []; }
-      // Token-based sentence/summary: propagate tokens array if present on item
-      if ((type === 'sentence_completion' || type === 'summary_completion') && item.tokens) {
+      // Token-based sentence/summary/diagram-inline: propagate tokens array if present on item
+      if ((type === 'sentence_completion' || type === 'summary_completion' ||
+           type === 'diagram_matching') && item.tokens) {
         q.tokens = item.tokens;
       }
       flat.push(q);
@@ -1627,8 +1709,8 @@ function adminImportListeningJSON(si, replaceAll) {
   if (section.audio_url && !data.sections[si].audioUrl) data.sections[si].audioUrl = section.audio_url;
   if (section.transcript && !data.sections[si].transcript) data.sections[si].transcript = section.transcript;
 
+  _persistSection(_aPkg, _aTest, 'listening', data);
   _applyListeningEditorState(data);
-  _persistSection(_aPkg, _aTest, 'listening', _collectListeningData());
   showToast(`Imported and saved ${flatQs.length} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
 }
 
@@ -1666,8 +1748,8 @@ function adminImportListeningSection(parsed, replaceAll) {
     if (sec.audio_url)  base.sections[si].audioUrl  = sec.audio_url;
     if (sec.transcript) base.sections[si].transcript = sec.transcript;
   });
+  _persistSection(_aPkg, _aTest, 'listening', base);
   _applyListeningEditorState(base);
-  _persistSection(_aPkg, _aTest, 'listening', _collectListeningData());
   showToast(`Imported and saved ${incoming.length} section(s), ${totalQs} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
 }
 
@@ -1701,6 +1783,7 @@ function _lsFlatToGroups(questions, si, secMeta) {
 
       if (type === 'diagram_matching') {
         if (peers[0].groupImage)    grp.image         = peers[0].groupImage;
+        if (peers[0].matchType)     grp.match_type    = peers[0].matchType;
         if (peers[0].optionsRange)  grp.options_range = peers[0].optionsRange;
         else if (peers[0].options && peers[0].options.length) grp.options = peers[0].options;
         if (peers[0].matchQuestion) grp.question      = peers[0].matchQuestion;
@@ -2154,7 +2237,17 @@ function _buildListeningQuestionRow(si, qi, q) {
       </div>
     </div>` : '';
 
-  const tableSection = type === 'table_completion' ? `
+  const tableSection = type === 'table_completion' ? (q.tableRows ? `
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Table Rows JSON <small style="color:var(--text-muted);">(rich format — first question carries full layout)</small></label>
+      <textarea class="admin-input admin-textarea" id="ls-tablerows-${si}-${qi}" rows="4"
+        style="font-family:monospace;font-size:0.78rem;white-space:pre;">${_esc(JSON.stringify(q.tableRows, null, 2))}</textarea>
+    </div>
+    <div class="admin-field-row" style="margin-top:0.25rem;">
+      <label class="admin-label">Table Columns (JSON array)</label>
+      <input class="admin-input" id="ls-tablecols-${si}-${qi}"
+        value="${_esc(JSON.stringify(q.tableColumns || []))}" placeholder='e.g. ["Subject","Description"]'>
+    </div>` : `
     <div class="admin-vocab-grid" style="margin-top:0.5rem;">
       <div class="admin-field-row">
         <label class="admin-label">Row label</label>
@@ -2164,7 +2257,7 @@ function _buildListeningQuestionRow(si, qi, q) {
         <label class="admin-label">Column</label>
         <input class="admin-input" id="ls-col-${si}-${qi}" value="${_esc(q.colContext||'')}" placeholder="e.g. Day">
       </div>
-    </div>` : '';
+    </div>`) : '';
 
   const flowSection = type === 'flow_chart' ? `
     <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:0.5rem;margin-top:0.5rem;align-items:end;">
@@ -2308,6 +2401,18 @@ function _collectListeningData() {
       const optionsRange = type === 'diagram_matching' ? _val(`ls-optrange-${si}-${qi}`) : undefined;
       const rowContext  = _val(`ls-row-${si}-${qi}`);
       const colContext  = _val(`ls-col-${si}-${qi}`);
+      // Rich table_completion: read back tableRows/tableColumns if present
+      let tableRows = undefined, tableColumns = undefined;
+      if (type === 'table_completion') {
+        const trEl = document.getElementById(`ls-tablerows-${si}-${qi}`);
+        if (trEl && trEl.value.trim()) {
+          try { tableRows = JSON.parse(trEl.value); } catch { tableRows = undefined; }
+        }
+        const tcEl = document.getElementById(`ls-tablecols-${si}-${qi}`);
+        if (tcEl && tcEl.value.trim()) {
+          try { tableColumns = JSON.parse(tcEl.value); } catch { tableColumns = undefined; }
+        }
+      }
       const nodeNum    = parseInt(_val(`ls-node-${si}-${qi}`)) || 0;
       const prefix     = _val(`ls-prefix-${si}-${qi}`);
       const suffix     = _val(`ls-suffix-${si}-${qi}`);
@@ -2346,6 +2451,9 @@ function _collectListeningData() {
         ...(suffix      ? { suffix }     : {}),
         ...(answerRule  ? { answerRule } : {}),
         ...(questionStart >= 0 && !isNaN(questionStart) ? { questionStart } : {}),
+        // Rich table_completion fields
+        ...(tableRows    != null ? { tableRows }    : {}),
+        ...(tableColumns != null ? { tableColumns } : {}),
         // Note completion fields (undefined for other types → not serialised)
         ...(noteBlocks     != null ? { noteBlocks }     : {}),
         ...(before         != null ? { before }         : {}),
@@ -2605,6 +2713,35 @@ function _rdGroupsToFlat(passage, pi) {
     const isGroup = type === 'table_completion' || type === 'diagram_labeling';
     const groupId = group.groupId || (isGroup ? `grp_p${pi}_g${gi}_${Date.now()}` : '');
     const items   = isGfx ? (group.labels || group.questions || []) : (group.questions || []);
+
+    // Rich table_completion format: rows / cells / segments
+    if (type === 'table_completion' && group.rows) {
+      let bi = 0;
+      group.rows.forEach(row => {
+        (row.cells || []).forEach(cell => {
+          (cell || []).forEach(seg => {
+            if (seg.t !== 'blank') return;
+            const ans = Array.isArray(seg.answer) ? seg.answer.join(', ') : (seg.answer || '');
+            const q = {
+              id:           seg.id || (flat.length + 1),
+              qNum:         seg.id || (flat.length + 1),
+              type:         'table_completion',
+              text:         '',
+              answer:       ans,
+              instructions: bi === 0 ? (group.instructions || '') : '',
+              groupId,
+            };
+            if (bi === 0) {
+              q.tableRows    = group.rows;
+              q.tableColumns = group.columns || [];
+            }
+            flat.push(q);
+            bi++;
+          });
+        });
+      });
+      return;  // skip generic items loop
+    }
 
     items.forEach((item, ii) => {
       const ans = Array.isArray(item.answer) ? item.answer : (item.answer || '');

@@ -612,12 +612,49 @@ iframe.listening-audio-player { height: 80px; }
    ===== LISTENING GROUP RENDERERS =====
    ============================================================ */
 
-/* Diagram Matching */
+/* Diagram Matching — two-column layout (image left, questions right) */
+.ls-diagram-layout {
+  display: flex; gap: 1.25rem; align-items: flex-start; margin-top: 0.75rem;
+}
+.ls-diagram-side {
+  flex: 0 0 45%; max-width: 45%;
+}
+.ls-diagram-questions-side {
+  flex: 1; min-width: 0;
+}
+.ls-diagram-side .ls-diagram-img { margin: 0; }
+@media (max-width: 640px) {
+  .ls-diagram-layout { flex-direction: column; }
+  .ls-diagram-side   { flex: none; max-width: 100%; }
+}
 .ls-diagram-img {
   display: block; width: 100%; height: auto; max-height: 480px;
   object-fit: contain; border-radius: var(--radius);
   border: 1px solid var(--border); margin: 0.75rem 0 1rem;
 }
+/* Fill-type diagram matching: text input instead of dropdown */
+.ls-matching-fill-input {
+  flex: 1; min-width: 80px; max-width: 160px;
+  border: 1.5px solid var(--border); border-radius: 5px;
+  padding: 0.25rem 0.4rem; font-size: 0.88rem;
+  background: var(--card-bg, #fff); color: var(--text);
+}
+.ls-matching-fill-input:focus { outline: none; border-color: var(--primary); }
+/* diagram_matching inline variant: sentence with embedded blank */
+.ls-matching-inline-row {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0.2rem; padding: 0.35rem 0; line-height: 1.6;
+}
+.ls-matching-inline-row .ls-token-text { white-space: pre-wrap; }
+/* Inline per-question flag button (inside grouped blocks) */
+.q-inline-flag {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 0.78rem; padding: 0 0.15rem;
+  opacity: 0.4; transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0; line-height: 1;
+}
+.q-inline-flag:hover { opacity: 1; color: #f59e0b; }
+.q-inline-flag.active { opacity: 1; color: #f59e0b; }
 
 /* Flow chart */
 .ls-flow-chart {
