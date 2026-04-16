@@ -28,6 +28,17 @@ function lsInstruction(text) {
   return `<div class="ls-instruction">${escHtml(text)}</div>`;
 }
 
+function lsRenderIntroBlocks(blocks) {
+  if (!blocks || !blocks.length) return '';
+  return '<div class="ls-intro-blocks">' + blocks.map(b => {
+    const text = escHtml(b.text || '');
+    if (b.type === 'heading')     return `<div class="ls-intro-heading">${text}</div>`;
+    if (b.type === 'subheading')  return `<div class="ls-intro-subheading">${text}</div>`;
+    if (b.type === 'bullet_line') return `<div class="ls-intro-bullet"><span class="ls-nc-bullet">–</span>${text}</div>`;
+    return `<div class="ls-intro-line">${text}</div>`;
+  }).join('') + '</div>';
+}
+
 /* ── Group-level router ───────────────────────────────────── */
 function lsRenderGroup(q, idx) {
   const allFqs = appState.test.flatQuestions;
@@ -153,9 +164,11 @@ function lsRenderDiagramMatchingGroup(peers, rangeLabel) {
     </div>`;
   }).join('');
 
+  const introBlocks = (peers[0] && peers[0].introBlocks) || [];
   const questionsBlock = `${questionHtml}
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
+    ${lsRenderIntroBlocks(introBlocks)}
     <div class="ls-matching-questions">${questionsHtml}</div>`;
 
   const inner = imgHtml
@@ -194,10 +207,12 @@ function lsRenderFlowGroup(peers, rangeLabel) {
     </div>`;
   }).join('<div class="ls-flow-arrow">&#8595;</div>');
 
+  const introBlocksFlow = (peers[0] && peers[0].introBlocks) || [];
   return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
+    ${lsRenderIntroBlocks(introBlocksFlow)}
     <div class="ls-flow-chart">${nodesHtml}</div>
   </div>`;
 }
@@ -229,10 +244,12 @@ function lsRenderTableGroup(peers, rangeLabel) {
         return `<td>${segHtml}</td>`;
       }).join('')}</tr>`
     ).join('');
+    const introBlocksTbl = (peers[0] && peers[0].introBlocks) || [];
     return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
       <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
       ${lsInstruction(instruction)}
       ${lsAnswerRule(answerRule)}
+      ${lsRenderIntroBlocks(introBlocksTbl)}
       <div class="ls-table-wrap"><table class="ls-completion-table">
         <thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody>
       </table></div>
@@ -260,10 +277,12 @@ function lsRenderTableGroup(peers, rangeLabel) {
     }).join('')}
   </tr>`).join('');
 
+  const introBlocksTblLeg = (peers[0] && peers[0].introBlocks) || [];
   return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
+    ${lsRenderIntroBlocks(introBlocksTblLeg)}
     <div class="ls-table-wrap"><table class="ls-completion-table">
       <thead>${headerHtml}</thead>
       <tbody>${bodyHtml}</tbody>
@@ -289,10 +308,12 @@ function lsRenderFormGroup(peers, rangeLabel) {
     </div>`;
   }).join('');
 
+  const introBlocksForm = (peers[0] && peers[0].introBlocks) || [];
   return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
+    ${lsRenderIntroBlocks(introBlocksForm)}
     <div class="ls-form-group">${fieldsHtml}</div>
   </div>`;
 }
@@ -302,6 +323,8 @@ function lsRenderNoteGroup(peers, rangeLabel) {
   const answerRule  = (peers[0] && peers[0].answerRule)  || '';
   const instruction = (peers[0] && peers[0].instruction) || '';
   const groupTitle  = (peers[0] && peers[0].groupTitle)  || '';
+
+  const introBlocksNote = (peers[0] && peers[0].introBlocks) || [];
 
   // Blocks+tokens format: peers[0].noteBlocks carries the full document
   if (peers[0] && peers[0].noteBlocks) {
@@ -319,6 +342,7 @@ function lsRenderNoteGroup(peers, rangeLabel) {
     return `<div class="question-block ls-nc-block" data-group="${escHtml(peers[0].groupId || '')}">
       <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
       ${lsAnswerRule(answerRule)}
+      ${lsRenderIntroBlocks(introBlocksNote)}
       <div class="ls-nc-document">${blocksHtml}</div>
     </div>`;
   }
@@ -364,6 +388,7 @@ function lsRenderNoteGroup(peers, rangeLabel) {
       <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
       ${lsInstruction(instruction)}
       ${lsAnswerRule(answerRule)}
+      ${lsRenderIntroBlocks(introBlocksNote)}
       ${groupTitle ? `<div class="ls-note-title">${escHtml(groupTitle)}</div>` : ''}
       <div class="ls-note-group-inline">${sectionsHtml}</div>
     </div>`;
@@ -388,6 +413,7 @@ function lsRenderNoteGroup(peers, rangeLabel) {
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
+    ${lsRenderIntroBlocks(introBlocksNote)}
     <div class="ls-note-group">${linesHtml}</div>
   </div>`;
 }
@@ -458,10 +484,12 @@ function lsRenderSentenceGroup(peers, rangeLabel) {
     </div>`;
   }).join('');
 
+  const introBlocksSent = (peers[0] && peers[0].introBlocks) || [];
   return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
+    ${lsRenderIntroBlocks(introBlocksSent)}
     <div class="ls-form-group">${itemsHtml}</div>
   </div>`;
 }
@@ -527,10 +555,12 @@ function lsRenderSummaryGroup(peers, rangeLabel) {
     bodyHtml = `<div class="ls-sentence-tokens">${paragraph}</div>`;
   }
 
+  const introBlocksSum = (peers[0] && peers[0].introBlocks) || [];
   return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
+    ${lsRenderIntroBlocks(introBlocksSum)}
     ${bodyHtml}
   </div>`;
 }
@@ -590,12 +620,14 @@ function lsRenderMatchingGroup(peers, rangeLabel) {
     </div>`;
   }).join('');
 
+  const introBlocksMatch = (peers[0] && peers[0].introBlocks) || [];
   return `<div class="question-block ls-matching-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsJumpBtn(peers[0].questionStart)}
     ${questionHtml}
     ${instructionHtml}
     ${answerRule ? `<div class="ls-answer-rule">Write ${escHtml(answerRule)}</div>` : ''}
+    ${lsRenderIntroBlocks(introBlocksMatch)}
     ${optionsHtml}
     <div class="ls-matching-questions">${questionsHtml}</div>
   </div>`;
@@ -618,10 +650,12 @@ function lsRenderGenericGroup(peers, rangeLabel) {
     </div>`;
   }).join('');
 
+  const introBlocksGen = (peers[0] && peers[0].introBlocks) || [];
   return `<div class="question-block" data-group="${escHtml(peers[0].groupId || '')}">
     <div class="question-number" data-qstart="${peers[0].questionStart || ''}">${rangeLabel}</div>
     ${lsInstruction(instruction)}
     ${lsAnswerRule(answerRule)}
+    ${lsRenderIntroBlocks(introBlocksGen)}
     ${items}
   </div>`;
 }

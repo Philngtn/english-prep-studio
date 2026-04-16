@@ -760,6 +760,13 @@ iframe.listening-audio-player { height: 80px; }
 .ls-nc-bullet     { margin-right: 0.3rem; flex-shrink: 0; }
 .ls-nc-text       { white-space: pre-wrap; }
 
+/* ── Intro blocks (non-answerable display content before questions) ── */
+.ls-intro-blocks    { margin: 0.5rem 0 0.75rem; font-size: 0.92rem; }
+.ls-intro-heading   { font-weight: 700; font-size: 1rem; margin: 0.6rem 0 0.3rem; color: var(--text); }
+.ls-intro-subheading{ font-weight: 600; margin: 0.5rem 0 0.15rem; color: var(--text); }
+.ls-intro-line      { margin: 0.2rem 0; white-space: pre-wrap; }
+.ls-intro-bullet    { display: flex; align-items: baseline; gap: 0.3rem; margin: 0.2rem 0; }
+
 /* ── Matching (options list + dropdowns) ─────────────────────── */
 .ls-matching-block  { }
 .ls-matching-question { font-size: 0.95rem; margin-bottom: 0.35rem; line-height: 1.6; }

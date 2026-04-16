@@ -1091,6 +1091,9 @@ RULES:
 4. "start" is the approximate second in the audio when the answer is spoken.
 5. Choose question types that match the content naturally.
 
+INTRO BLOCKS (optional on ANY group type) — add "intro_blocks" to a group to show non-answerable display content (headings, context lines, example rows, bullet cues) BEFORE the question inputs. Students see it but do not answer it. Block types: {"type":"heading","text":"..."} (bold title), {"type":"subheading","text":"..."} (bold section label), {"type":"line","text":"..."} (normal text line), {"type":"bullet_line","text":"..."} (–  bullet point). Always put intro_blocks on the group, not on individual questions. Example use cases: a form title above form_completion fields, an example row above table_completion, context sentences above sentence_completion.
+Example: { "type": "form_completion", "intro_blocks": [{"type":"heading","text":"BOOKING FORM"}, {"type":"line","text":"Example: Name: Smith"}], "questions": [...] }
+
 FOR note_completion — use this format (NOT label/answer rows):
   "blocks": [ array of block objects ] + "questions": [ {id, answer, start} ]
   Block types: "heading" (bold title), "subheading" (bold section), "line" (normal), "bullet_line" (– bullet)
@@ -1472,6 +1475,11 @@ summary_completion. Passage: [paste passage here]"
   with matching "row" and "col" values.
 - Slash-separated answers are accepted for short/completion types
   e.g. "cost effective/cost-effective"
+- INTRO BLOCKS: add "intro_blocks" to ANY group to show non-answerable
+  display content before the questions (form titles, example rows, context
+  labels, bullet cues). Block types: {"type":"heading","text":"..."},
+  {"type":"subheading","text":"..."}, {"type":"line","text":"..."},
+  {"type":"bullet_line","text":"..."}. Put intro_blocks on the GROUP object.
 ==============================================================`;
 
 const WRITING_JSON_SCHEMA = `{
@@ -1633,6 +1641,7 @@ function _lsGroupsToFlat(section, si) {
             if (bi === 0) {
               q.tableRows    = group.rows;
               q.tableColumns = group.columns || [];
+              if (group.intro_blocks && group.intro_blocks.length) q.introBlocks = group.intro_blocks;
             }
             flat.push(q);
             bi++;
@@ -1657,6 +1666,7 @@ function _lsGroupsToFlat(section, si) {
       if (isGroup) q.groupId = groupId;
       if (answerRule)  q.answerRule  = answerRule;
       if (instruction) q.instruction = ii === 0 ? instruction : '';  // only first in group
+      if (ii === 0 && group.intro_blocks && group.intro_blocks.length) q.introBlocks = group.intro_blocks;
       if (type === 'matching' && ii === 0) {
         q.optionsHeading = group.options_heading || group.optionsHeading || '';
         q.matchQuestion  = group.question || '';
@@ -2334,6 +2344,12 @@ function _buildListeningQuestionRow(si, qi, q) {
           value="${_esc(answer)}" placeholder="Correct answer">
       </div>
       ${optionsSection}${countSection}${graphicSection}${tableSection}${flowSection}${groupIdSection}
+      ${q.introBlocks ? `
+      <div class="admin-field-row" style="margin-top:0.5rem;">
+        <label class="admin-label">Intro Blocks JSON <small style="color:var(--text-muted);">(display-only content before questions — first question only)</small></label>
+        <textarea class="admin-input admin-textarea" id="ls-introblocks-${si}-${qi}" rows="4"
+          style="font-family:monospace;font-size:0.78rem;white-space:pre;">${_esc(JSON.stringify(q.introBlocks, null, 2))}</textarea>
+      </div>` : ''}
       <div class="admin-field-row" style="margin-top:0.5rem;">
         <label class="admin-label">Answer Rule <small style="color:var(--text-muted);">(optional — e.g. NO MORE THAN TWO WORDS)</small></label>
         <input class="admin-input" id="ls-ansrule-${si}-${qi}" value="${_esc(q.answerRule||'')}" placeholder="e.g. NO MORE THAN TWO WORDS AND/OR A NUMBER">
@@ -2419,6 +2435,12 @@ function _collectListeningData() {
       const answerRule = _val(`ls-ansrule-${si}-${qi}`);
       const qsRaw = _val(`ls-qstart-${si}-${qi}`);
       const questionStart = qsRaw !== '' ? parseInt(qsRaw, 10) : NaN;
+      // intro_blocks: display-only content before questions (any group type, first question only)
+      let introBlocks = undefined;
+      const ibEl = document.getElementById(`ls-introblocks-${si}-${qi}`);
+      if (ibEl && ibEl.value.trim()) {
+        try { introBlocks = JSON.parse(ibEl.value); } catch { introBlocks = undefined; }
+      }
       // Note completion: blocks+tokens format uses a noteBlocks textarea; old format uses before/after/heading fields
       let noteBlocks = undefined, before = undefined, after = undefined, sectionHeading = undefined, groupTitle = undefined;
       if (type === 'note_completion') {
@@ -2451,6 +2473,8 @@ function _collectListeningData() {
         ...(suffix      ? { suffix }     : {}),
         ...(answerRule  ? { answerRule } : {}),
         ...(questionStart >= 0 && !isNaN(questionStart) ? { questionStart } : {}),
+        // Intro blocks (display-only content before questions)
+        ...(introBlocks  != null ? { introBlocks }  : {}),
         // Rich table_completion fields
         ...(tableRows    != null ? { tableRows }    : {}),
         ...(tableColumns != null ? { tableColumns } : {}),
@@ -2734,6 +2758,7 @@ function _rdGroupsToFlat(passage, pi) {
             if (bi === 0) {
               q.tableRows    = group.rows;
               q.tableColumns = group.columns || [];
+              if (group.intro_blocks && group.intro_blocks.length) q.introBlocks = group.intro_blocks;
             }
             flat.push(q);
             bi++;
@@ -2758,6 +2783,7 @@ function _rdGroupsToFlat(passage, pi) {
         ...(isGroup ? { groupId } : {}),
         ...(isGfx   ? { groupImage: group.image || '', xPct: item.x || 0, yPct: item.y || 0 } : {}),
         ...(type === 'table_completion' ? { rowContext: item.row || '', colContext: item.col || '' } : {}),
+        ...(ii === 0 && group.intro_blocks && group.intro_blocks.length ? { introBlocks: group.intro_blocks } : {}),
       };
       flat.push(q);
     });

@@ -865,6 +865,18 @@ function _rdRenderQuestion(q, idx) {
   return html;
 }
 
+/* Render intro_blocks: non-answerable display content before questions */
+function _rdRenderIntroBlocks(blocks) {
+  if (!blocks || !blocks.length) return '';
+  return '<div class="ls-intro-blocks">' + blocks.map(b => {
+    const text = escHtml(b.text || '');
+    if (b.type === 'heading')     return `<div class="ls-intro-heading">${text}</div>`;
+    if (b.type === 'subheading')  return `<div class="ls-intro-subheading">${text}</div>`;
+    if (b.type === 'bullet_line') return `<div class="ls-intro-bullet"><span class="ls-nc-bullet">–</span>${text}</div>`;
+    return `<div class="ls-intro-line">${text}</div>`;
+  }).join('') + '</div>';
+}
+
 /* Render a grouped question block (table_completion, diagram_labeling) */
 function _rdRenderGroupBlock(peers) {
   if (!peers.length) return '';
@@ -873,6 +885,7 @@ function _rdRenderGroupBlock(peers) {
     ? `Question ${qNums[0]}`
     : `Questions ${qNums[0]}–${qNums[qNums.length - 1]}`;
   const instructions = (peers.find(p => p.instructions) || {}).instructions || '';
+  const introBlocks  = (peers[0] && peers[0].introBlocks) || [];
   const type = peers[0].type;
 
   const isMatchingType = ['matching', 'matching_headings', 'matching_info', 'matching_information',
@@ -887,7 +900,9 @@ function _rdRenderGroupBlock(peers) {
   } else {
     inner = _rdRenderFormList(peers, rangeLabel);
   }
-  return (instructions ? `<div class="rd-instructions">${instructions}</div>` : '') + inner;
+  return (instructions ? `<div class="rd-instructions">${instructions}</div>` : '')
+    + _rdRenderIntroBlocks(introBlocks)
+    + inner;
 }
 
 /* Render grouped matching questions: options list at top + question rows with dropdowns */
