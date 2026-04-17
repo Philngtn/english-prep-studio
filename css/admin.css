@@ -2,6 +2,10 @@
    HocCungTrang — Admin Panel
    ============================================================ */
 
+/* Admin content container — override global max-width so the editor
+   fills most of the screen rather than being capped at 1100px */
+#adminContainer { max-width: 1600px; padding: 1.5rem 1.25rem; }
+
 /* Admin nav button */
 .nav-btn-admin { color: var(--primary) !important; }
 .nav-btn-admin.active { background: #fce7f3 !important; }
