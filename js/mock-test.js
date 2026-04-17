@@ -773,8 +773,9 @@ function _rdRenderQuestionsPane(passageQs, firstIdx) {
       // Two matching groups are distinct only when their options differ
       fp = q.type + '||' + JSON.stringify(q.options || []);
     } else {
-      // sentence/summary: group by type + answerRule + instructions
-      fp = q.type + '||' + (q.answerRule || '') + '||' + (q.instructions || '');
+      // sentence/summary: group by type only — answerRule/instructions are only
+      // stored on the first question so using them in the fingerprint splits the group
+      fp = q.type;
     }
     if (!_tempIdMap[fp]) _tempIdMap[fp] = `__autogrp_${_autoIdx++}`;
     return Object.assign({}, q, { groupId: _tempIdMap[fp] });
