@@ -161,6 +161,7 @@ let _aRenamingPkg          = null;
 let _aRenamingTest         = null;
 let _aDirtySection         = null;
 let _aListeningPart    = 0;
+let _rdActivePassage   = 0;   // which reading passage tab is visible
 let _adminSnapshot         = null;   // baseline form state after each render / save
 let _adminDirty            = false;  // true when form differs from baseline
 let _adminRendering        = false;  // suppress dirty detection during render cycles
@@ -2746,13 +2747,21 @@ function _buildReadingEditor(data) {
     { id:'p2', title:'', text:'', questions:[] },
     { id:'p3', title:'', text:'', questions:[] },
   ];
+  const active = Math.max(0, Math.min(_rdActivePassage, passages.length - 1));
 
-  const passagesHTML = passages.map((p, pi) => `
-    <div class="admin-card" id="rd-passage-${pi}">
-      <div class="admin-card-header">
-        <span class="admin-card-title">Passage ${pi + 1}</span>
-        ${passages.length > 1 ? `<button class="btn btn-sm btn-danger" onclick="adminRemoveReadingPassage(${pi})" style="margin-left:auto;">&#10005; Remove Passage</button>` : ''}
-      </div>
+  // ── Tab bar ──────────────────────────────────────────────────
+  const tabsHtml = passages.map((_p, pi) => `
+    <button class="rd-passage-tab${pi === active ? ' active' : ''}"
+      onclick="adminSwitchReadingPassage(${pi})">
+      Passage ${pi + 1}
+      ${passages.length > 1
+        ? `<span class="rd-tab-close" onclick="event.stopPropagation();adminRemoveReadingPassage(${pi})" title="Remove passage">&#10005;</span>`
+        : ''}
+    </button>`).join('');
+
+  // ── Passage panels ───────────────────────────────────────────
+  const panelsHtml = passages.map((p, pi) => `
+    <div id="rd-passage-${pi}" class="rd-passage-panel${pi === active ? ' active' : ''}" style="display:${pi === active ? '' : 'none'}">
       <div class="admin-field-row">
         <label class="admin-label">Passage Title</label>
         <input class="admin-input" id="rd-ptitle-${pi}" value="${_esc(p.title)}"
@@ -2829,8 +2838,11 @@ function _buildReadingEditor(data) {
   ).join('');
 
   return `
-    ${passagesHTML}
-    <button class="btn btn-sm btn-outline" style="margin-top:0.5rem;" onclick="adminAddReadingPassage()">+ Add Passage</button>`;
+    <div class="rd-passage-tabs">
+      ${tabsHtml}
+      <button class="rd-passage-tab rd-passage-tab-add" onclick="adminAddReadingPassage()" title="Add passage">+</button>
+    </div>
+    ${panelsHtml}`;
 }
 
 const _RD_ALL_TYPES = [
@@ -3127,21 +3139,38 @@ function adminImportReadingSection(parsed, replaceAll) {
     if (!data.passages[i]) data.passages[i] = { id: `p${i + 1}`, title: '', text: '', questions: [] };
   }
 
+  _rdActivePassage = 0;
   _applyReadingEditorState(data);
   _persistSection(_aPkg, _aTest, 'reading', _collectReadingData());
   showToast(`Imported and saved ${incoming.length} passage(s), ${totalQs} question(s)${replaceAll ? ' (replaced all)' : ''}.`);
+}
+
+function adminSwitchReadingPassage(pi) {
+  _rdActivePassage = pi;
+  // Update tab active states
+  document.querySelectorAll('.rd-passage-tab:not(.rd-passage-tab-add)').forEach((btn, i) => {
+    btn.classList.toggle('active', i === pi);
+  });
+  // Show/hide panels
+  let i = 0;
+  while (document.getElementById(`rd-passage-${i}`)) {
+    document.getElementById(`rd-passage-${i}`).style.display = i === pi ? '' : 'none';
+    i++;
+  }
 }
 
 function adminAddReadingPassage() {
   const d = _collectReadingData();
   const n = d.passages.length + 1;
   d.passages.push({ id:`p${n}`, title:'', text:'', questions:[] });
+  _rdActivePassage = d.passages.length - 1;
   _applyReadingEditorState(d);
 }
 function adminRemoveReadingPassage(pi) {
   if (!confirm('Remove this passage and all its questions?')) return;
   const d = _collectReadingData();
   d.passages.splice(pi, 1);
+  _rdActivePassage = Math.min(_rdActivePassage, d.passages.length - 1);
   _applyReadingEditorState(d);
 }
 function adminAddReadingQ(pi)         { const d = _collectReadingData(); d.passages[pi].questions.push({ id:`rd_p${pi}_q${Date.now()}`, type:'tfng', text:'', answer:'' }); _applyReadingEditorState(d); }

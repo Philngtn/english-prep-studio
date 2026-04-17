@@ -688,6 +688,38 @@
   .diag-placement-hint { display: none; }
 }
 
+/* ── Reading passage tabs ────────────────────────────────────── */
+.rd-passage-tabs {
+  display: flex; align-items: stretch; flex-wrap: wrap;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 1.25rem; gap: 0;
+}
+.rd-passage-tab {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.5rem 1.1rem;
+  border: none; background: none; cursor: pointer;
+  font-family: 'Nunito', sans-serif; font-size: 0.88rem; font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2.5px solid transparent; margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.rd-passage-tab:hover { color: var(--primary); background: var(--primary-l); }
+.rd-passage-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.rd-passage-tab-add {
+  font-size: 1.15rem; font-weight: 700;
+  padding: 0.4rem 0.85rem; color: var(--text-muted);
+  margin-left: 0.2rem;
+}
+.rd-passage-tab-add:hover { color: var(--primary); background: var(--primary-l); }
+.rd-tab-close {
+  font-size: 0.78rem; line-height: 1;
+  color: var(--text-muted); margin-left: 0.1rem;
+  padding: 0.1rem 0.15rem; border-radius: 3px;
+  transition: color 0.12s, background 0.12s;
+}
+.rd-tab-close:hover { color: #fff; background: var(--danger); }
+
 /* ── Listening editor mode tabs (Edit / Preview / JSON) ─────── */
 .ls-editor-mode-tabs {
   display: flex; gap: 0.25rem; margin-bottom: 0.75rem; flex-wrap: wrap;
