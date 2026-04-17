@@ -754,13 +754,40 @@ function _buildAudioPlayer(url) {
 
 /* Build the HTML for all questions in a passage, grouping by groupId */
 function _rdRenderQuestionsPane(passageQs, firstIdx) {
+  // ── Pre-group legacy questions that lack an explicit groupId ──────────────
+  // Matching types: group by type + serialised options (each unique options set = one group).
+  // Sentence/summary completion: group by type + answerRule + instructions fingerprint.
+  // This handles data imported before auto-groupId was added; questions with an
+  // explicit groupId are left untouched.
+  const _matchingTypes = new Set(['matching','matching_headings','matching_info',
+    'matching_information','matching_features','matching_sentence_endings']);
+  const _groupableTypes = new Set([..._matchingTypes, 'sentence_completion','summary_completion']);
+
+  let _autoIdx = 0;
+  const _tempIdMap = {};  // fingerprint → tempGroupId
+
+  const qs = passageQs.map(q => {
+    if (q.groupId || !_groupableTypes.has(q.type)) return q;
+    let fp;
+    if (_matchingTypes.has(q.type)) {
+      // Two matching groups are distinct only when their options differ
+      fp = q.type + '||' + JSON.stringify(q.options || []);
+    } else {
+      // sentence/summary: group by type + answerRule + instructions
+      fp = q.type + '||' + (q.answerRule || '') + '||' + (q.instructions || '');
+    }
+    if (!_tempIdMap[fp]) _tempIdMap[fp] = `__autogrp_${_autoIdx++}`;
+    return Object.assign({}, q, { groupId: _tempIdMap[fp] });
+  });
+  // ─────────────────────────────────────────────────────────────────────────
+
   const rendered = new Set();
   const cards    = [];
-  passageQs.forEach((pq, i) => {
+  qs.forEach((pq, i) => {
     const sid = String(pq.id);
     if (rendered.has(sid)) return;
     if (pq.groupId) {
-      const peers = passageQs.filter(x => x.groupId === pq.groupId);
+      const peers = qs.filter(x => x.groupId === pq.groupId);
       peers.forEach(p => rendered.add(String(p.id)));
       // Give the card an id on the first peer so jumpToQuestion can scroll to it.
       cards.push(`<div class="reading-question-card" id="q-card-${peers[0].id}">${_rdRenderGroupBlock(peers)}</div>`);
