@@ -280,7 +280,7 @@ body {
   background: var(--card-bg);
   border-radius: 20px;
   padding: 2rem 2.25rem;
-  max-width: 420px; width: 90%;
+  max-width: 780px; width: 92%;
   box-shadow: var(--shadow-lg);
   border: 1.5px solid var(--border);
 }

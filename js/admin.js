@@ -560,8 +560,8 @@ function adminShowImportSectionModal() {
     ? `<button class="btn btn-outline" style="flex-shrink:0;" onclick="closeModal();_adminDoImportSection(false)">&#8679; Append</button>`
     : '';
   _showAdminInputModal(`Import ${_aSec.charAt(0).toUpperCase() + _aSec.slice(1)} JSON`,
-    `<textarea id="section-import-ta" class="admin-textarea ls-json-textarea" rows="12"
-      placeholder="Paste JSON here..." style="width:100%;margin-top:0.5rem;"></textarea>
+    `<textarea id="section-import-ta" class="admin-textarea ls-json-textarea" rows="16"
+      placeholder="Paste JSON here..." style="width:100%;margin-top:0.5rem;font-family:monospace;font-size:0.78rem;"></textarea>
      <details style="margin-top:0.6rem;">
        <summary style="font-size:0.8rem;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;gap:0.5rem;">
          <span>JSON Schema &#9658;</span>
