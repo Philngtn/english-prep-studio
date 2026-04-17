@@ -1133,6 +1133,14 @@ RULES:
 - "answerRule" is shown as a hint to students (e.g. "NO MORE THAN TWO WORDS").
 - "paragraphRef" is optional — the letter of the passage paragraph (A, B, C…)
   where the answer can be found, used for highlighting.
+- "intro_blocks" — REQUIRED on every group. Introduces the topic/context of the
+  questions so students know what they are reading about. Place it on the GROUP
+  object (not on individual questions). Use one or more of:
+    {"type":"heading","text":"..."}     — bold title for the question set
+    {"type":"subheading","text":"..."}  — sub-section title
+    {"type":"line","text":"..."}        — plain context sentence
+  ALWAYS include at least a heading that names the topic of the questions.
+  Add a line when a brief sentence of context helps students orient themselves.
 
 --------------------------------------------------------------
 SUPPORTED TYPES
@@ -1140,31 +1148,37 @@ SUPPORTED TYPES
 
 1. true_false_not_given
    answer: "TRUE" | "FALSE" | "NOT GIVEN"
+   intro_blocks: heading naming what the statements are about (e.g. "Claims about Sleep Research")
 
 2. yes_no_not_given
    answer: "YES" | "NO" | "NOT GIVEN"
+   intro_blocks: heading naming the writer's views being assessed
 
 3. multiple_choice  (choose ONE)
    answer: single letter  e.g. "B"
    options: array of full option strings
+   intro_blocks: heading for the question set (e.g. "Sleep Cycle Comprehension")
 
 4. multiple_select  (choose N)
    answer: array of letters  e.g. ["B","D"]
    count: number of correct answers
    options: array of full option strings
+   intro_blocks: heading for the question set
 
 ALL MATCHING TYPES — rendered as:
-   ① instruction at top  ② options list (A. text, B. text …) as a reference panel
-   ③ each question as a row: [Q#] [question text] [dropdown to select letter]
+   ① intro_blocks context  ② instruction  ③ options list (A. text …) as a reference panel
+   ④ each question as a row: [Q#] [question text] [dropdown to select letter]
    IMPORTANT: always put matching questions in a group with a shared "groupId"
    so the options panel is shown ONCE at the top, not repeated per question.
    "options_heading" (optional) — bold title shown above the options list
+   intro_blocks: heading + optional line giving context (e.g. what paragraphs cover)
 
 5. matching_headings
    Each question = one paragraph to assign a heading.
    answer: the heading letter  e.g. "iii"
    options: shared array of heading strings (same for all questions in group)
    { "type": "matching_headings", "groupId": "mh_g1",
+     "intro_blocks": [{"type":"heading","text":"Paragraph Headings"}],
      "instructions": "Choose the correct heading for paragraphs A–E from the list below.",
      "options_heading": "List of Headings",
      "options": ["i. The evolutionary origins of sleep", "ii. How technology disrupts sleep", "iii. The stages of a sleep cycle"],
@@ -1179,6 +1193,7 @@ ALL MATCHING TYPES — rendered as:
    answer: paragraph letter  e.g. "D"
    options: paragraph letters or summaries  e.g. ["A","B","C","D","E","F"]
    { "type": "matching_information", "groupId": "mi_g1",
+     "intro_blocks": [{"type":"heading","text":"Locating Information"}],
      "instructions": "Which paragraph contains the following information?",
      "options": ["A","B","C","D","E","F"],
      "questions": [
@@ -1192,6 +1207,10 @@ ALL MATCHING TYPES — rendered as:
    answer: letter of the matching person/category  e.g. "B"
    options: array of people/categories  (format "A. Name")
    { "type": "matching_features", "groupId": "mf_g1",
+     "intro_blocks": [
+       {"type":"heading","text":"Research Findings"},
+       {"type":"line","text":"Match each finding to the scientist who made it."}
+     ],
      "instructions": "Match each finding with the correct scientist.",
      "options_heading": "Scientists",
      "options": ["A. Dr Sarah Chen", "B. Professor James Liu", "C. Dr Maria Costa"],
@@ -1206,6 +1225,7 @@ ALL MATCHING TYPES — rendered as:
    answer: letter of the correct ending  e.g. "E"
    options: array of sentence endings  (format "A. ending text")
    { "type": "matching_sentence_endings", "groupId": "mse_g1",
+     "intro_blocks": [{"type":"heading","text":"Effects of Sleep on Health"}],
      "instructions": "Complete each sentence with the correct ending A–F.",
      "options": ["A. is associated with better performance.", "B. can lead to cardiovascular disease.", "C. reduces vaccine effectiveness."],
      "questions": [
@@ -1216,23 +1236,24 @@ ALL MATCHING TYPES — rendered as:
 
 9. sentence_completion
    Each question = one sentence with a blank. Use "________" (8 underscores) in "text" as the blank placeholder.
-   All questions share one group — options panel shown once, each sentence on its own line.
    Sentences with "________" render with the blank embedded inline; sentences without it render as label + blank.
    Both styles can mix freely in one group.
    answerRule: e.g. "NO MORE THAN TWO WORDS"
    groupId is auto-assigned — you do NOT need to add it manually.
+   intro_blocks: heading naming the topic + optional line of context
 
 10. summary_completion
     A flowing paragraph with numbered blanks embedded inside. Use "________" (8 underscores) in each question's "text"
     where the blank goes. All texts are joined into one paragraph on screen.
-    Alternatively, put a full token array on the first question (FORMAT B — see listening schema).
     answerRule: e.g. "ONE WORD ONLY"
     groupId is auto-assigned — you do NOT need to add it manually.
+    intro_blocks: heading naming the topic of the summary paragraph + optional line of context
 
 11. completion  (inline blanks embedded inside a block of text — LEGACY, prefer summary_completion)
     No "questions" array — use "content" array instead.
     content: alternating text tokens and blank tokens.
     answerRule: e.g. "NO MORE THAN TWO WORDS AND/OR A NUMBER"
+    intro_blocks: heading for the completion block
     *** See example below ***
 
 12. table_completion
@@ -1242,18 +1263,20 @@ ALL MATCHING TYPES — rendered as:
     LEGACY: "questions" with "row"/"col" per blank (one blank per cell only).
     groupId is auto-assigned — you do NOT need to add it manually.
     answerRule: e.g. "NO MORE THAN TWO WORDS"
+    intro_blocks: heading naming what the table is about (e.g. "Comparison of Sleep Stages")
 
 13. diagram_labeling
     TWO variants — use whichever fits the source material:
     PIN variant (x/y coordinates): image + numbered input boxes overlaid at exact positions.
       Use "labels" array with "x", "y" (0–100 percent), and "answer".
     FILL/INLINE variant (no x/y needed): image on left, labelled questions on right.
-      Each label's "text": short label → renders as  31 label [___];
+      Each label's "text": short label → renders as label [___];
                            text with "________" → renders inline with blank embedded.
       Both styles can mix freely in one group.
     image: URL to the diagram/map/plan image.
     groupId is auto-assigned — you do NOT need to add it manually.
     answer: word(s) from the passage
+    intro_blocks: heading naming the diagram (e.g. "The Sleep Cycle")
 
 --------------------------------------------------------------
 FULL EXAMPLE
@@ -1268,6 +1291,7 @@ FULL EXAMPLE
 
         {
           "type": "true_false_not_given",
+          "intro_blocks": [{"type":"heading","text":"Claims about Sleep Science"}],
           "instructions": "Do the following statements agree with the information given in the Reading Passage? Write TRUE if the statement agrees, FALSE if it contradicts, or NOT GIVEN if there is no information.",
           "questions": [
             { "id": 1, "text": "Adults need at least nine hours of sleep per night.", "answer": "FALSE", "paragraphRef": "A" },
@@ -1278,6 +1302,7 @@ FULL EXAMPLE
 
         {
           "type": "yes_no_not_given",
+          "intro_blocks": [{"type":"heading","text":"The Writer's Views on Sleep"}],
           "instructions": "Do the following statements agree with the views of the writer? Write YES, NO or NOT GIVEN.",
           "questions": [
             { "id": 4, "text": "The writer believes modern society undervalues sleep.", "answer": "YES", "paragraphRef": "C" },
@@ -1287,6 +1312,7 @@ FULL EXAMPLE
 
         {
           "type": "multiple_choice",
+          "intro_blocks": [{"type":"heading","text":"The Role of Deep Sleep"}],
           "instructions": "Choose the correct letter A, B, C or D.",
           "questions": [
             {
@@ -1305,6 +1331,7 @@ FULL EXAMPLE
 
         {
           "type": "multiple_select",
+          "intro_blocks": [{"type":"heading","text":"Benefits of Sleep"}],
           "instructions": "Choose TWO letters A–E. Which TWO benefits of sleep are mentioned in the passage?",
           "count": 2,
           "questions": [
@@ -1325,6 +1352,7 @@ FULL EXAMPLE
 
         {
           "type": "matching_headings",
+          "intro_blocks": [{"type":"heading","text":"Paragraph Headings"}],
           "instructions": "The Reading Passage has seven paragraphs A–G. Choose the correct heading for each paragraph from the list below.",
           "options": [
             "i. The evolutionary origins of sleep",
@@ -1344,6 +1372,7 @@ FULL EXAMPLE
 
         {
           "type": "matching_information",
+          "intro_blocks": [{"type":"heading","text":"Locating Information in the Passage"}],
           "instructions": "The Reading Passage has six paragraphs A–F. Which paragraph contains the following information? You may use any letter more than once.",
           "options": ["A","B","C","D","E","F"],
           "questions": [
@@ -1355,6 +1384,10 @@ FULL EXAMPLE
 
         {
           "type": "matching_features",
+          "intro_blocks": [
+            {"type":"heading","text":"Sleep Research Findings"},
+            {"type":"line","text":"Match each finding to the scientist responsible for it."}
+          ],
           "instructions": "Match each research finding with the correct scientist. NB You may use any letter more than once.",
           "options": [
             "A. Dr Sarah Chen",
@@ -1371,6 +1404,7 @@ FULL EXAMPLE
 
         {
           "type": "matching_sentence_endings",
+          "intro_blocks": [{"type":"heading","text":"Effects of Sleep on Health"}],
           "instructions": "Complete each sentence with the correct ending A–F.",
           "options": [
             "A. is associated with better academic performance.",
@@ -1388,6 +1422,10 @@ FULL EXAMPLE
 
         {
           "type": "sentence_completion",
+          "intro_blocks": [
+            {"type":"heading","text":"Sleep and Cognitive Performance"},
+            {"type":"line","text":"The following sentences are based on research findings described in the passage."}
+          ],
           "instructions": "Complete the sentences below. Write NO MORE THAN TWO WORDS from the passage for each answer.",
           "answerRule": "NO MORE THAN TWO WORDS",
           "questions": [
@@ -1398,6 +1436,10 @@ FULL EXAMPLE
 
         {
           "type": "summary_completion",
+          "intro_blocks": [
+            {"type":"heading","text":"Sleep Deprivation and the Immune System"},
+            {"type":"line","text":"The paragraph below summarises what the passage says about how sleep affects the body's defences."}
+          ],
           "instructions": "Complete the summary below. Choose NO MORE THAN ONE WORD from the passage for each answer.",
           "answerRule": "ONE WORD ONLY",
           "questions": [
@@ -1408,6 +1450,7 @@ FULL EXAMPLE
 
         {
           "type": "completion",
+          "intro_blocks": [{"type":"heading","text":"Sleep Cycle Facts"}],
           "instructions": "Complete the notes below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER from the passage for each answer.",
           "answerRule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
           "content": [
@@ -1428,6 +1471,7 @@ FULL EXAMPLE
 
         {
           "type": "table_completion",
+          "intro_blocks": [{"type":"heading","text":"Comparison of Sleep Stages"}],
           "instructions": "Complete the table below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER from the passage.",
           "answerRule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
           "columns": ["Sleep Stage", "Brain Wave", "Key Function"],
@@ -1452,6 +1496,7 @@ FULL EXAMPLE
 
         {
           "type": "diagram_labeling",
+          "intro_blocks": [{"type":"heading","text":"The Sleep Cycle"}],
           "instructions": "Label the diagram of the sleep cycle. Write ONE WORD ONLY from the passage.",
           "answerRule": "ONE WORD ONLY",
           "image": "Resources/sleep-cycle.png",
@@ -1464,6 +1509,7 @@ FULL EXAMPLE
 
         {
           "type": "diagram_labeling",
+          "intro_blocks": [{"type":"heading","text":"How the Brain Induces Sleep"}],
           "instructions": "Complete the diagram labels below. Write ONE WORD ONLY from the passage.",
           "answerRule": "ONE WORD ONLY",
           "image": "Resources/sleep-process.png",
@@ -1488,7 +1534,18 @@ When asking ChatGPT to generate questions, use this prompt template:
 Output valid JSON matching this exact schema. Use question IDs as
 consecutive integers starting from [N]. Include a mix of these types:
 true_false_not_given, matching_headings, sentence_completion, and
-summary_completion. Passage: [paste passage here]"
+summary_completion. Every group MUST have an intro_blocks array.
+Passage: [paste passage here]"
+
+- INTRO BLOCKS (REQUIRED on every group): Every group must include "intro_blocks"
+  to introduce the context of the questions to students. Use:
+    {"type":"heading","text":"..."}     — bold title naming the topic (always include)
+    {"type":"line","text":"..."}        — one sentence of context when helpful
+    {"type":"subheading","text":"..."}  — sub-section title if needed
+  Put intro_blocks on the GROUP object, not on individual questions.
+  The heading should name what the questions are about (e.g. "Effects of Sleep on Health",
+  "The Writer's Views", "Comparison of Sleep Stages"). Add a line only when a brief
+  sentence helps students orient to the specific section of the passage.
 
 - For ALL matching types (matching_headings, matching_information, matching_features,
   matching_sentence_endings): Put "options" and "options_heading" on the GROUP object
@@ -1512,26 +1569,6 @@ summary_completion. Passage: [paste passage here]"
   Both variants: put "answerRule" on the group. groupId is auto-assigned.
 - Slash-separated answers are accepted for short/completion types
   e.g. "cost effective/cost-effective"
-- INTRO BLOCKS: add "intro_blocks" to ANY group object to show non-answerable
-  context above the questions (headings, summary titles, example sentences,
-  bullet cues, etc.). Block types:
-    {"type":"heading","text":"..."}      — bold section title
-    {"type":"subheading","text":"..."}   — smaller sub-title
-    {"type":"line","text":"..."}         — plain text line
-    {"type":"bullet_line","text":"..."}  — indented bullet line
-  Put intro_blocks on the GROUP object (not on individual questions).
-  Example:
-  { "type": "summary_completion",
-    "intro_blocks": [
-      {"type":"heading","text":"How to become a freelance writer"},
-      {"type":"line","text":"Freelancing gives would-be writers a chance to get some paid experience."},
-      {"type":"subheading","text":"Sources of work"}
-    ],
-    "questions": [
-      {"id":15,"text":"Specialist websites: best to check that potential employers are ________ before agreeing to do any work.","answer":"genuine"},
-      {"id":16,"text":"The press: ensure all ________ are persuasive and kept to a minimum length.","answer":"pitches"}
-    ]
-  }
 ==============================================================`;
 
 const WRITING_JSON_SCHEMA = `{
