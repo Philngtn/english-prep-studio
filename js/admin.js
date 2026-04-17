@@ -1133,14 +1133,13 @@ RULES:
 - "answerRule" is shown as a hint to students (e.g. "NO MORE THAN TWO WORDS").
 - "paragraphRef" is optional — the letter of the passage paragraph (A, B, C…)
   where the answer can be found, used for highlighting.
-- "intro_blocks" — REQUIRED on every group. Introduces the topic/context of the
+- "intro_blocks" — optional on any group. Introduces the topic/context of the
   questions so students know what they are reading about. Place it on the GROUP
   object (not on individual questions). Use one or more of:
     {"type":"heading","text":"..."}     — bold title for the question set
     {"type":"subheading","text":"..."}  — sub-section title
     {"type":"line","text":"..."}        — plain context sentence
-  ALWAYS include at least a heading that names the topic of the questions.
-  Add a line when a brief sentence of context helps students orient themselves.
+  Include when it helps students orient to what the questions are about.
 
 --------------------------------------------------------------
 SUPPORTED TYPES
@@ -1148,22 +1147,22 @@ SUPPORTED TYPES
 
 1. true_false_not_given
    answer: "TRUE" | "FALSE" | "NOT GIVEN"
-   intro_blocks: heading naming what the statements are about (e.g. "Claims about Sleep Research")
+   intro_blocks (optional): heading naming what the statements are about (e.g. "Claims about Sleep Research")
 
 2. yes_no_not_given
    answer: "YES" | "NO" | "NOT GIVEN"
-   intro_blocks: heading naming the writer's views being assessed
+   intro_blocks (optional): heading naming the writer's views being assessed
 
 3. multiple_choice  (choose ONE)
    answer: single letter  e.g. "B"
    options: array of full option strings
-   intro_blocks: heading for the question set (e.g. "Sleep Cycle Comprehension")
+   intro_blocks (optional): heading for the question set (e.g. "Sleep Cycle Comprehension")
 
 4. multiple_select  (choose N)
    answer: array of letters  e.g. ["B","D"]
    count: number of correct answers
    options: array of full option strings
-   intro_blocks: heading for the question set
+   intro_blocks (optional): heading for the question set
 
 ALL MATCHING TYPES — rendered as:
    ① intro_blocks context  ② instruction  ③ options list (A. text …) as a reference panel
@@ -1171,7 +1170,7 @@ ALL MATCHING TYPES — rendered as:
    IMPORTANT: always put matching questions in a group with a shared "groupId"
    so the options panel is shown ONCE at the top, not repeated per question.
    "options_heading" (optional) — bold title shown above the options list
-   intro_blocks: heading + optional line giving context (e.g. what paragraphs cover)
+   intro_blocks (optional): heading + line giving context (e.g. what paragraphs cover)
 
 5. matching_headings
    Each question = one paragraph to assign a heading.
@@ -1240,20 +1239,20 @@ ALL MATCHING TYPES — rendered as:
    Both styles can mix freely in one group.
    answerRule: e.g. "NO MORE THAN TWO WORDS"
    groupId is auto-assigned — you do NOT need to add it manually.
-   intro_blocks: heading naming the topic + optional line of context
+   intro_blocks (optional): heading naming the topic + line of context
 
 10. summary_completion
     A flowing paragraph with numbered blanks embedded inside. Use "________" (8 underscores) in each question's "text"
     where the blank goes. All texts are joined into one paragraph on screen.
     answerRule: e.g. "ONE WORD ONLY"
     groupId is auto-assigned — you do NOT need to add it manually.
-    intro_blocks: heading naming the topic of the summary paragraph + optional line of context
+    intro_blocks (optional): heading naming the topic of the summary + line of context
 
 11. completion  (inline blanks embedded inside a block of text — LEGACY, prefer summary_completion)
     No "questions" array — use "content" array instead.
     content: alternating text tokens and blank tokens.
     answerRule: e.g. "NO MORE THAN TWO WORDS AND/OR A NUMBER"
-    intro_blocks: heading for the completion block
+    intro_blocks (optional): heading for the completion block
     *** See example below ***
 
 12. table_completion
@@ -1263,7 +1262,7 @@ ALL MATCHING TYPES — rendered as:
     LEGACY: "questions" with "row"/"col" per blank (one blank per cell only).
     groupId is auto-assigned — you do NOT need to add it manually.
     answerRule: e.g. "NO MORE THAN TWO WORDS"
-    intro_blocks: heading naming what the table is about (e.g. "Comparison of Sleep Stages")
+    intro_blocks (optional): heading naming what the table is about (e.g. "Comparison of Sleep Stages")
 
 13. diagram_labeling
     TWO variants — use whichever fits the source material:
@@ -1276,7 +1275,7 @@ ALL MATCHING TYPES — rendered as:
     image: URL to the diagram/map/plan image.
     groupId is auto-assigned — you do NOT need to add it manually.
     answer: word(s) from the passage
-    intro_blocks: heading naming the diagram (e.g. "The Sleep Cycle")
+    intro_blocks (optional): heading naming the diagram (e.g. "The Sleep Cycle")
 
 --------------------------------------------------------------
 FULL EXAMPLE
@@ -1534,18 +1533,19 @@ When asking ChatGPT to generate questions, use this prompt template:
 Output valid JSON matching this exact schema. Use question IDs as
 consecutive integers starting from [N]. Include a mix of these types:
 true_false_not_given, matching_headings, sentence_completion, and
-summary_completion. Every group MUST have an intro_blocks array.
+summary_completion. Add intro_blocks to each group where it helps
+students understand the context of the questions.
 Passage: [paste passage here]"
 
-- INTRO BLOCKS (REQUIRED on every group): Every group must include "intro_blocks"
-  to introduce the context of the questions to students. Use:
-    {"type":"heading","text":"..."}     — bold title naming the topic (always include)
+- INTRO BLOCKS (optional, recommended): Add "intro_blocks" to a group when it helps
+  students understand the context of the questions. Use:
+    {"type":"heading","text":"..."}     — bold title naming the topic
     {"type":"line","text":"..."}        — one sentence of context when helpful
     {"type":"subheading","text":"..."}  — sub-section title if needed
   Put intro_blocks on the GROUP object, not on individual questions.
-  The heading should name what the questions are about (e.g. "Effects of Sleep on Health",
-  "The Writer's Views", "Comparison of Sleep Stages"). Add a line only when a brief
-  sentence helps students orient to the specific section of the passage.
+  Good uses: name what the questions are about ("Effects of Sleep on Health"),
+  briefly indicate which part of the passage the questions relate to, or introduce
+  the topic of a summary/sentence completion paragraph.
 
 - For ALL matching types (matching_headings, matching_information, matching_features,
   matching_sentence_endings): Put "options" and "options_heading" on the GROUP object
