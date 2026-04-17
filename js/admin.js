@@ -1474,6 +1474,40 @@ FULL EXAMPLE
         },
 
         {
+          "type": "note_completion",
+          "intro_blocks": [{"type":"heading","text":"How Sleep Affects the Brain"}],
+          "instructions": "Complete the notes below. Write ONE WORD ONLY from the passage.",
+          "answerRule": "ONE WORD ONLY",
+          "blocks": [
+            {"type":"subheading","text":"During sleep"},
+            {"type":"bullet_line","tokens":[
+              {"type":"text","value":"the brain transfers memories to "},{"type":"blank","id":19},
+              {"type":"text","value":" storage"}
+            ]},
+            {"type":"bullet_line","tokens":[{"type":"text","value":"toxins:"}]},
+            {"type":"nested_bullet","tokens":[
+              {"type":"text","value":"removed via the "},{"type":"blank","id":20},
+              {"type":"text","value":" system"}
+            ]},
+            {"type":"subheading","text":"Sleep deprivation effects"},
+            {"type":"bullet_line","tokens":[
+              {"type":"text","value":"impairs "},{"type":"blank","id":21},
+              {"type":"text","value":" more than physical performance"}
+            ]},
+            {"type":"bullet_line","tokens":[{"type":"text","value":"immune system:"}]},
+            {"type":"nested_bullet","tokens":[
+              {"type":"text","value":"reduced production of "},{"type":"blank","id":22}
+            ]}
+          ],
+          "questions": [
+            {"id":19,"answer":"long-term"},
+            {"id":20,"answer":"glymphatic"},
+            {"id":21,"answer":"cognition"},
+            {"id":22,"answer":"antibodies"}
+          ]
+        },
+
+        {
           "type": "sentence_completion",
           "intro_blocks": [
             {"type":"heading","text":"Sleep and Cognitive Performance"},
@@ -1482,8 +1516,8 @@ FULL EXAMPLE
           "instructions": "Complete the sentences below. Write NO MORE THAN TWO WORDS from the passage for each answer.",
           "answerRule": "NO MORE THAN TWO WORDS",
           "questions": [
-            { "id": 19, "text": "The brain consolidates memories during a phase known as ________.", "answer": "slow-wave sleep", "paragraphRef": "B" },
-            { "id": 20, "text": "Researchers found that sleep deprivation impairs ________ more than physical performance.", "answer": "cognitive function", "paragraphRef": "D" }
+            { "id": 23, "text": "The brain consolidates memories during a phase known as ________.", "answer": "slow-wave sleep", "paragraphRef": "B" },
+            { "id": 24, "text": "Researchers found that sleep deprivation impairs ________ more than physical performance.", "answer": "cognitive function", "paragraphRef": "D" }
           ]
         },
 
@@ -1496,8 +1530,8 @@ FULL EXAMPLE
           "instructions": "Complete the summary below. Choose NO MORE THAN ONE WORD from the passage for each answer.",
           "answerRule": "ONE WORD ONLY",
           "questions": [
-            { "id": 21, "text": "Sleep deprivation affects the body's ability to produce ________, which fights infection.", "answer": "antibodies" },
-            { "id": 22, "text": "The brain's ________ system is activated during deep sleep to remove toxins.", "answer": "glymphatic" }
+            { "id": 25, "text": "Sleep deprivation affects the body's ability to produce ________, which fights infection.", "answer": "antibodies" },
+            { "id": 26, "text": "The brain's ________ system is activated during deep sleep to remove toxins.", "answer": "glymphatic" }
           ]
         },
 
@@ -1508,17 +1542,17 @@ FULL EXAMPLE
           "answerRule": "NO MORE THAN TWO WORDS AND/OR A NUMBER",
           "content": [
             { "type": "text",  "value": "Sleep cycles last approximately " },
-            { "type": "blank", "id": "23" },
+            { "type": "blank", "id": "27" },
             { "type": "text",  "value": " minutes and repeat " },
-            { "type": "blank", "id": "24" },
+            { "type": "blank", "id": "28" },
             { "type": "text",  "value": " times per night. During REM sleep, the brain shows activity similar to the " },
-            { "type": "blank", "id": "25" },
+            { "type": "blank", "id": "29" },
             { "type": "text",  "value": " state." }
           ],
           "questions": [
-            { "id": "23", "answer": "90" },
-            { "id": "24", "answer": "4 to 6/four to six" },
-            { "id": "25", "answer": "waking" }
+            { "id": "27", "answer": "90" },
+            { "id": "28", "answer": "4 to 6/four to six" },
+            { "id": "29", "answer": "waking" }
           ]
         },
 
@@ -1531,17 +1565,17 @@ FULL EXAMPLE
           "rows": [
             { "cells": [
                 [{"t":"text","content":"Stage 1"}],
-                [{"t":"blank","id":26,"answer":["alpha waves"]}],
-                [{"t":"blank","id":27,"answer":["light sleep"]}]
+                [{"t":"blank","id":30,"answer":["alpha waves"]}],
+                [{"t":"blank","id":31,"answer":["light sleep"]}]
             ]},
             { "cells": [
                 [{"t":"text","content":"Stage 3"}],
-                [{"t":"blank","id":28,"answer":["delta waves"]}],
-                [{"t":"text","content":"cell repair and "},{"t":"blank","id":29,"answer":["growth hormone"]}]
+                [{"t":"blank","id":32,"answer":["delta waves"]}],
+                [{"t":"text","content":"cell repair and "},{"t":"blank","id":33,"answer":["growth hormone"]}]
             ]},
             { "cells": [
                 [{"t":"text","content":"REM"}],
-                [{"t":"blank","id":30,"answer":["mixed frequency"]}],
+                [{"t":"blank","id":34,"answer":["mixed frequency"]}],
                 [{"t":"text","content":"memory consolidation"}]
             ]}
           ]
@@ -1554,9 +1588,9 @@ FULL EXAMPLE
           "answerRule": "ONE WORD ONLY",
           "image": "Resources/sleep-cycle.png",
           "labels": [
-            { "id": 31, "x": 15, "y": 30, "answer": "light sleep" },
-            { "id": 32, "x": 45, "y": 65, "answer": "deep sleep"  },
-            { "id": 33, "x": 78, "y": 25, "answer": "REM sleep"   }
+            { "id": 35, "x": 15, "y": 30, "answer": "light sleep" },
+            { "id": 36, "x": 45, "y": 65, "answer": "deep sleep"  },
+            { "id": 37, "x": 78, "y": 25, "answer": "REM sleep"   }
           ]
         },
 
@@ -1567,9 +1601,9 @@ FULL EXAMPLE
           "answerRule": "ONE WORD ONLY",
           "image": "Resources/sleep-process.png",
           "labels": [
-            { "id": 34, "text": "adenosine",                                        "answer": "adenosine"  },
-            { "id": 35, "text": "Brain releases ________ to induce drowsiness",     "answer": "melatonin"  },
-            { "id": 36, "text": "core body temperature",                            "answer": "drops"      }
+            { "id": 38, "text": "adenosine",                                        "answer": "adenosine"  },
+            { "id": 39, "text": "Brain releases ________ to induce drowsiness",     "answer": "melatonin"  },
+            { "id": 40, "text": "core body temperature",                            "answer": "drops"      }
           ]
         }
 
