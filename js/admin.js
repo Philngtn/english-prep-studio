@@ -1511,11 +1511,6 @@ summary_completion. Passage: [paste passage here]"
   Both variants: put "answerRule" on the group. groupId is auto-assigned.
 - Slash-separated answers are accepted for short/completion types
   e.g. "cost effective/cost-effective"
-- INTRO BLOCKS: add "intro_blocks" to ANY group to show non-answerable
-  display content before the questions (form titles, example rows, context
-  labels, bullet cues). Block types: {"type":"heading","text":"..."},
-  {"type":"subheading","text":"..."}, {"type":"line","text":"..."},
-  {"type":"bullet_line","text":"..."}. Put intro_blocks on the GROUP object.
 ==============================================================`;
 
 const WRITING_JSON_SCHEMA = `{
@@ -3043,7 +3038,6 @@ function _rdGroupsToFlat(passage, pi) {
         ...(isGroup ? { groupId } : {}),
         ...(isGfx   ? { groupImage: group.image || '', xPct: item.x || 0, yPct: item.y || 0 } : {}),
         ...(type === 'table_completion' ? { rowContext: item.row || '', colContext: item.col || '' } : {}),
-        ...(ii === 0 && group.intro_blocks && group.intro_blocks.length ? { introBlocks: group.intro_blocks } : {}),
         ...(ii === 0 && (group.answerRule || group.answer_rule) ? { answerRule: group.answerRule || group.answer_rule } : {}),
         ...(ii === 0 && (group.options_heading || group.optionsHeading) ? { optionsHeading: group.options_heading || group.optionsHeading } : {}),
         ...(item.tokens ? { tokens: item.tokens } : {}),

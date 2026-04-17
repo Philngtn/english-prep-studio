@@ -892,18 +892,6 @@ function _rdRenderQuestion(q, idx) {
   return html;
 }
 
-/* Render intro_blocks: non-answerable display content before questions */
-function _rdRenderIntroBlocks(blocks) {
-  if (!blocks || !blocks.length) return '';
-  return '<div class="ls-intro-blocks">' + blocks.map(b => {
-    const text = escHtml(b.text || '');
-    if (b.type === 'heading')     return `<div class="ls-intro-heading">${text}</div>`;
-    if (b.type === 'subheading')  return `<div class="ls-intro-subheading">${text}</div>`;
-    if (b.type === 'bullet_line') return `<div class="ls-intro-bullet"><span class="ls-nc-bullet">–</span>${text}</div>`;
-    return `<div class="ls-intro-line">${text}</div>`;
-  }).join('') + '</div>';
-}
-
 /* Render a grouped question block (table_completion, diagram_labeling) */
 function _rdRenderGroupBlock(peers) {
   if (!peers.length) return '';
@@ -912,7 +900,6 @@ function _rdRenderGroupBlock(peers) {
     ? `Question ${qNums[0]}`
     : `Questions ${qNums[0]}–${qNums[qNums.length - 1]}`;
   const instructions = (peers.find(p => p.instructions) || {}).instructions || '';
-  const introBlocks  = (peers[0] && peers[0].introBlocks) || [];
   const type = peers[0].type;
 
   const isMatchingType = ['matching', 'matching_headings', 'matching_info', 'matching_information',
@@ -932,7 +919,6 @@ function _rdRenderGroupBlock(peers) {
     inner = _rdRenderFormList(peers, rangeLabel);
   }
   return (instructions ? `<div class="rd-instructions">${instructions}</div>` : '')
-    + _rdRenderIntroBlocks(introBlocks)
     + inner;
 }
 
@@ -994,7 +980,6 @@ function _rdRenderMatchingGroup(peers, rangeLabel) {
 function _rdRenderSentenceList(peers, rangeLabel) {
   const answerRule  = peers[0].answerRule
     ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
-  const introBlocks = (peers[0] && peers[0].introBlocks) || [];
 
   const rowsHtml = peers.map(p => {
     const saved      = appState.test.answers[p.id] || '';
@@ -1035,7 +1020,6 @@ function _rdRenderSentenceList(peers, rangeLabel) {
   return `<div class="question-block">
     <div class="question-number">${rangeLabel}</div>
     ${answerRule}
-    ${_rdRenderIntroBlocks(introBlocks)}
     <div class="ls-matching-questions">${rowsHtml}</div>
   </div>`;
 }
@@ -1044,7 +1028,6 @@ function _rdRenderSentenceList(peers, rangeLabel) {
 function _rdRenderSummaryParagraph(peers, rangeLabel) {
   const answerRule  = peers[0].answerRule
     ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
-  const introBlocks = (peers[0] && peers[0].introBlocks) || [];
 
   const buildBlank = (p) => {
     const saved      = appState.test.answers[p.id] || '';
@@ -1081,7 +1064,6 @@ function _rdRenderSummaryParagraph(peers, rangeLabel) {
   return `<div class="question-block">
     <div class="question-number">${rangeLabel}</div>
     ${answerRule}
-    ${_rdRenderIntroBlocks(introBlocks)}
     <div class="rd-summary-para">${paraHtml}</div>
   </div>`;
 }
@@ -1090,7 +1072,6 @@ function _rdRenderDiagram(peers, rangeLabel) {
   const imgUrl     = (peers[0] && peers[0].groupImage) || '';
   const answerRule = peers[0].answerRule
     ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
-  const introBlocks = (peers[0] && peers[0].introBlocks) || [];
 
   // Detect variant: pin (x/y coordinates) vs fill/inline (no coordinates)
   const hasPins = peers.some(p => p.xPct || p.yPct);
@@ -1115,7 +1096,6 @@ function _rdRenderDiagram(peers, rangeLabel) {
     return `<div class="question-block">
       <div class="question-number">${rangeLabel}</div>
       ${answerRule}
-      ${_rdRenderIntroBlocks(introBlocks)}
       ${imgUrl
         ? `<div class="rd-image-wrap"><img src="${escHtml(imgUrl)}" class="rd-diagram-img" alt="Diagram" draggable="false">${pinsHtml}</div>`
         : '<div class="rd-no-image">No diagram image provided.</div>'}
@@ -1164,7 +1144,6 @@ function _rdRenderDiagram(peers, rangeLabel) {
   }).join('');
 
   const questionsBlock = `${answerRule}
-    ${_rdRenderIntroBlocks(introBlocks)}
     <div class="ls-matching-questions">${questionsHtml}</div>`;
 
   const inner = imgHtml
