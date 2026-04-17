@@ -1511,6 +1511,26 @@ summary_completion. Passage: [paste passage here]"
   Both variants: put "answerRule" on the group. groupId is auto-assigned.
 - Slash-separated answers are accepted for short/completion types
   e.g. "cost effective/cost-effective"
+- INTRO BLOCKS: add "intro_blocks" to ANY group object to show non-answerable
+  context above the questions (headings, summary titles, example sentences,
+  bullet cues, etc.). Block types:
+    {"type":"heading","text":"..."}      — bold section title
+    {"type":"subheading","text":"..."}   — smaller sub-title
+    {"type":"line","text":"..."}         — plain text line
+    {"type":"bullet_line","text":"..."}  — indented bullet line
+  Put intro_blocks on the GROUP object (not on individual questions).
+  Example:
+  { "type": "summary_completion",
+    "intro_blocks": [
+      {"type":"heading","text":"How to become a freelance writer"},
+      {"type":"line","text":"Freelancing gives would-be writers a chance to get some paid experience."},
+      {"type":"subheading","text":"Sources of work"}
+    ],
+    "questions": [
+      {"id":15,"text":"Specialist websites: best to check that potential employers are ________ before agreeing to do any work.","answer":"genuine"},
+      {"id":16,"text":"The press: ensure all ________ are persuasive and kept to a minimum length.","answer":"pitches"}
+    ]
+  }
 ==============================================================`;
 
 const WRITING_JSON_SCHEMA = `{
@@ -3038,6 +3058,7 @@ function _rdGroupsToFlat(passage, pi) {
         ...(isGroup ? { groupId } : {}),
         ...(isGfx   ? { groupImage: group.image || '', xPct: item.x || 0, yPct: item.y || 0 } : {}),
         ...(type === 'table_completion' ? { rowContext: item.row || '', colContext: item.col || '' } : {}),
+        ...(ii === 0 && group.intro_blocks && group.intro_blocks.length ? { introBlocks: group.intro_blocks } : {}),
         ...(ii === 0 && (group.answerRule || group.answer_rule) ? { answerRule: group.answerRule || group.answer_rule } : {}),
         ...(ii === 0 && (group.options_heading || group.optionsHeading) ? { optionsHeading: group.options_heading || group.optionsHeading } : {}),
         ...(item.tokens ? { tokens: item.tokens } : {}),
