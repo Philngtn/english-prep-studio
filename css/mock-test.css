@@ -761,6 +761,7 @@ iframe.listening-audio-player { height: 80px; }
 .ls-nc-line       { display: flex; align-items: center; flex-wrap: wrap;
                     gap: 0.25rem; margin: 0.25rem 0; line-height: 2.2; }
 .ls-nc-bullet     { margin-right: 0.3rem; flex-shrink: 0; }
+.ls-nc-nested     { padding-left: 1.6rem; }
 .ls-nc-text       { white-space: pre-wrap; }
 
 /* ── Intro blocks (non-answerable display content before questions) ── */

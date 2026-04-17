@@ -1248,7 +1248,61 @@ ALL MATCHING TYPES — rendered as:
     groupId is auto-assigned — you do NOT need to add it manually.
     intro_blocks (optional): heading naming the topic of the summary + line of context
 
-11. completion  (inline blanks embedded inside a block of text — LEGACY, prefer summary_completion)
+11. note_completion  (hierarchical notes with headings, sub-headings, bullets, nested bullets)
+    Use "blocks" to define the full document structure. Each block has a "type" and either
+    "text" (for headings/subheadings/plain lines) or "tokens" (for lines with inline blanks).
+    Block types:
+      "heading"       — bold section title
+      "subheading"    — bold sub-section title (smaller)
+      "line"          — plain paragraph line (tokens or text)
+      "bullet_line"   — bullet point (–) at current indent
+      "nested_bullet" — indented bullet (one level deeper than bullet_line)
+    Token types inside a block's "tokens" array:
+      {"type":"text","value":"..."}  — plain text span
+      {"type":"blank","id":N}        — numbered answer blank (N must match a question id)
+    "questions" lists the blank ids and their answers. No "text" needed on questions.
+    groupId and answerRule go on the group object. groupId is auto-assigned.
+    Example:
+    { "type": "note_completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY from the passage.",
+      "answerRule": "ONE WORD ONLY",
+      "intro_blocks": [{"type":"heading","text":"How to become a freelance writer"}],
+      "blocks": [
+        {"type":"line","tokens":[
+          {"type":"text","value":"Freelancing gives would-be writers a chance to get some paid experience."}
+        ]},
+        {"type":"subheading","text":"Sources of work"},
+        {"type":"bullet_line","tokens":[{"type":"text","value":"specialist websites:"}]},
+        {"type":"nested_bullet","tokens":[
+          {"type":"text","value":"best to check out that potential employers are "},
+          {"type":"blank","id":15},
+          {"type":"text","value":" before agreeing to do any work"}
+        ]},
+        {"type":"bullet_line","tokens":[{"type":"text","value":"the press:"}]},
+        {"type":"nested_bullet","tokens":[
+          {"type":"text","value":"ensure all "},
+          {"type":"blank","id":16},
+          {"type":"text","value":" are persuasive and kept to a minimum length"}
+        ]},
+        {"type":"subheading","text":"Advantages of freelance writing"},
+        {"type":"bullet_line","tokens":[
+          {"type":"text","value":"the power to decide on the size of the "},
+          {"type":"blank","id":17}
+        ]},
+        {"type":"bullet_line","tokens":[
+          {"type":"text","value":"the "},{"type":"blank","id":18},
+          {"type":"text","value":" in the scheduling of the work"}
+        ]}
+      ],
+      "questions": [
+        {"id":15,"answer":"genuine"},
+        {"id":16,"answer":"pitches"},
+        {"id":17,"answer":"workload"},
+        {"id":18,"answer":"flexibility"}
+      ]
+    }
+
+12. completion  (inline blanks embedded inside a block of text — LEGACY, prefer note_completion or summary_completion)
     No "questions" array — use "content" array instead.
     content: alternating text tokens and blank tokens.
     answerRule: e.g. "NO MORE THAN TWO WORDS AND/OR A NUMBER"
@@ -1551,6 +1605,10 @@ Passage: [paste passage here]"
   matching_sentence_endings): Put "options" and "options_heading" on the GROUP object
   (not on individual questions). Format options as "A. text", "B. text". groupId is
   auto-assigned — you do NOT need to add it manually. Options panel is shown ONCE at top.
+- For note_completion: use "blocks" to define the full hierarchical document. Use
+  "nested_bullet" for indented sub-bullets (one level deeper than "bullet_line").
+  Put blanks as {"type":"blank","id":N} tokens inside the block's "tokens" array.
+  List all blank ids and answers in "questions". groupId and answerRule on the group.
 - For sentence_completion: put "________" (8 underscores) in each question's "text" where
   the blank goes. Sentences render as a list, each with its blank inline. Put "answerRule"
   on the group. groupId is auto-assigned.
@@ -3055,7 +3113,7 @@ function _rdGroupsToFlat(passage, pi) {
     const type = typeMap[rawType] || rawType;
     const isGfx   = type === 'diagram_labeling';
     const isGroup = ['table_completion','diagram_labeling',
-                     'sentence_completion','summary_completion',
+                     'sentence_completion','summary_completion','note_completion',
                      'matching_headings','matching_information','matching_features',
                      'matching_sentence_endings'].includes(type);
     const groupId = group.groupId || (isGroup ? `grp_p${pi}_g${gi}_${Date.now()}` : '');
@@ -3108,6 +3166,7 @@ function _rdGroupsToFlat(passage, pi) {
         ...(isGfx   ? { groupImage: group.image || '', xPct: item.x || 0, yPct: item.y || 0 } : {}),
         ...(type === 'table_completion' ? { rowContext: item.row || '', colContext: item.col || '' } : {}),
         ...(ii === 0 && group.intro_blocks && group.intro_blocks.length ? { introBlocks: group.intro_blocks } : {}),
+        ...(ii === 0 && (group.blocks || group.noteBlocks) ? { noteBlocks: group.blocks || group.noteBlocks } : {}),
         ...(ii === 0 && (group.answerRule || group.answer_rule) ? { answerRule: group.answerRule || group.answer_rule } : {}),
         ...(ii === 0 && (group.options_heading || group.optionsHeading) ? { optionsHeading: group.options_heading || group.optionsHeading } : {}),
         ...(item.tokens ? { tokens: item.tokens } : {}),

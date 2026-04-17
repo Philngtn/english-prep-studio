@@ -761,7 +761,7 @@ function _rdRenderQuestionsPane(passageQs, firstIdx) {
   // explicit groupId are left untouched.
   const _matchingTypes = new Set(['matching','matching_headings','matching_info',
     'matching_information','matching_features','matching_sentence_endings']);
-  const _groupableTypes = new Set([..._matchingTypes, 'sentence_completion','summary_completion']);
+  const _groupableTypes = new Set([..._matchingTypes, 'sentence_completion','summary_completion','note_completion']);
 
   let _autoIdx = 0;
   const _tempIdMap = {};  // fingerprint → tempGroupId
@@ -886,11 +886,65 @@ function _rdRenderQuestion(q, idx) {
 
   let html = `<div class="question-block">
     <div class="question-number">${qPrefix} ${qLabel}</div>
+    ${_rdRenderIntroBlocks(q.introBlocks || [])}
     <div class="question-text">${q.text}</div>
     ${body}
   </div>`;
   if (q.instructions) html = `<div class="rd-instructions">${q.instructions}</div>` + html;
   return html;
+}
+
+/* Render tokens for reading note_completion (same as listening but no audio jump btn) */
+function _rdNcRenderTokens(tokens, plainText, blankMap) {
+  if (!tokens || !tokens.length) return `<span class="ls-nc-text">${escHtml(plainText || '')}</span>`;
+  return tokens.map(tok => {
+    if (tok.type === 'text') return `<span class="ls-nc-text">${escHtml(tok.value || '')}</span>`;
+    if (tok.type === 'blank') {
+      const peer = blankMap[String(tok.id)];
+      if (!peer) return '';
+      const saved      = appState.test.answers[peer.id] || '';
+      const flagActive = appState.test.flags.has(peer.id) ? ' active' : '';
+      return `<span class="ls-token-blank-wrap">
+        <button class="q-inline-flag${flagActive}" data-qid="${escHtml(String(peer.id))}"
+          onclick="toggleFlagById('${escHtml(String(peer.id))}')" title="Flag Q${peer.qNum}">⚑</button>
+        <span class="ls-token-blank-num">${peer.qNum}</span>
+        <input type="text" class="ls-token-blank-input" value="${escHtml(saved)}"
+          data-qid="${escHtml(String(peer.id))}" autocomplete="off" spellcheck="false">
+      </span>`;
+    }
+    return '';
+  }).join('');
+}
+
+/* Render note_completion with hierarchical noteBlocks (heading/subheading/bullet/nested_bullet) */
+function _rdRenderNoteGroup(peers, rangeLabel) {
+  const answerRule = peers[0].answerRule
+    ? `<div class="rd-answer-rule">${escHtml(peers[0].answerRule)}</div>` : '';
+
+  if (peers[0] && peers[0].noteBlocks) {
+    // Build lookup by both qNum and id so token references always resolve
+    const blankMap = {};
+    peers.forEach(p => { blankMap[String(p.qNum)] = p; blankMap[String(p.id)] = p; });
+
+    const blocksHtml = peers[0].noteBlocks.map(block => {
+      if (block.type === 'heading')    return `<div class="ls-nc-heading">${escHtml(block.text || '')}</div>`;
+      if (block.type === 'subheading') return `<div class="ls-nc-subheading">${escHtml(block.text || '')}</div>`;
+      const isNested = block.type === 'nested_bullet';
+      const isBullet = block.type === 'bullet_line' || block.type === 'bullet';
+      const prefix   = (isBullet || isNested) ? '<span class="ls-nc-bullet">–</span>' : '';
+      const cls      = isNested ? 'ls-nc-line ls-nc-nested' : 'ls-nc-line';
+      return `<div class="${cls}">${prefix}${_rdNcRenderTokens(block.tokens, block.text, blankMap)}</div>`;
+    }).join('');
+
+    return `<div class="question-block ls-nc-block">
+      <div class="question-number">${rangeLabel}</div>
+      ${answerRule}
+      <div class="ls-nc-document">${blocksHtml}</div>
+    </div>`;
+  }
+
+  // No noteBlocks — fall back to simple form list
+  return _rdRenderFormList(peers, rangeLabel);
 }
 
 /* Render intro_blocks: non-answerable context shown above a question group */
@@ -923,6 +977,8 @@ function _rdRenderGroupBlock(peers) {
     inner = _rdRenderDiagram(peers, rangeLabel);
   } else if (type === 'table_completion') {
     inner = _rdRenderTable(peers, rangeLabel);
+  } else if (type === 'note_completion') {
+    inner = _rdRenderNoteGroup(peers, rangeLabel);
   } else if (type === 'sentence_completion') {
     inner = _rdRenderSentenceList(peers, rangeLabel);
   } else if (type === 'summary_completion') {
