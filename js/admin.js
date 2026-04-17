@@ -2985,8 +2985,9 @@ const _RD_ALL_TYPES = [
   ['matching_sentence_endings', 'Matching — Sentence Endings'],
   ['matching',                  'Matching (generic)'],
   ['short',                     'Short Answer'],
+  ['note_completion',           'Note Completion (hierarchical)'],
   ['sentence_completion',       'Sentence Completion'],
-  ['summary_completion',        'Summary / Note Completion'],
+  ['summary_completion',        'Summary Completion (paragraph)'],
   ['completion',                'Inline Completion (blanks in text)'],
   ['table_completion',          'Table Completion'],
   ['diagram_labeling',          'Diagram Labeling'],
@@ -3028,11 +3029,26 @@ function _buildReadingQuestionRow(pi, qi, q) {
     </div>` : '';
 
   const answerRuleSection = (type === 'short' || type === 'sentence_completion' ||
-    type === 'summary_completion' || type === 'completion') ? `
+    type === 'summary_completion' || type === 'note_completion' || type === 'completion') ? `
     <div class="admin-field-row" style="margin-top:0.5rem;">
       <label class="admin-label">Answer Rule <small style="color:var(--text-muted);">(e.g. NO MORE THAN TWO WORDS)</small></label>
       <input class="admin-input" id="rd-ansrule-${pi}-${qi}" value="${_esc(q.answerRule||'')}"
         placeholder="NO MORE THAN TWO WORDS AND/OR A NUMBER">
+    </div>` : '';
+
+  // note_completion: show Blocks JSON textarea on first question (has noteBlocks),
+  // or a hint to import via JSON for subsequent questions
+  const noteBlocksSection = type === 'note_completion' ? `
+    <div class="admin-field-row" style="margin-top:0.5rem;">
+      <label class="admin-label">Blocks JSON <small style="color:var(--text-muted);">(first question carries the full layout; paste from Import JSON or edit here)</small></label>
+      <textarea class="admin-textarea" id="rd-noteblocks-${pi}-${qi}" rows="8"
+        style="font-family:monospace;font-size:0.76rem;white-space:pre;"
+        placeholder='[{"type":"subheading","text":"Sources of work"},{"type":"bullet_line","tokens":[{"type":"text","value":"specialist websites: "},{"type":"blank","id":1}]}]'>${_esc(q.noteBlocks ? JSON.stringify(q.noteBlocks, null, 2) : '')}</textarea>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.25rem;">
+        Block types: <code>heading</code> <code>subheading</code> <code>line</code> <code>bullet_line</code> <code>nested_bullet</code>.
+        Token types inside blocks: <code>{"type":"text","value":"..."}</code> or <code>{"type":"blank","id":N}</code>.
+        Add each blank id+answer as a separate question row below.
+      </p>
     </div>` : '';
 
   const countSection = type === 'multi' ? `
@@ -3115,17 +3131,18 @@ function _buildReadingQuestionRow(pi, qi, q) {
         <button class="btn btn-sm btn-danger admin-remove-btn"
           onclick="adminRemoveReadingQ(${pi},${qi})">&#10005;</button>
       </div>
+      ${type !== 'note_completion' ? `
       <div class="admin-field-row" style="margin-top:0.5rem;">
         <label class="admin-label">Question Text / Blank Label</label>
         <input class="admin-input" id="rd-text-${pi}-${qi}"
           value="${_esc(text)}" placeholder="Question stem or label letter">
-      </div>
+      </div>` : `<input type="hidden" id="rd-text-${pi}-${qi}" value="">`}
       <div class="admin-field-row" style="margin-top:0.5rem;">
         <label class="admin-label">Answer${answerHint}</label>
         <input class="admin-input" id="rd-ans-${pi}-${qi}"
           value="${_esc(answer)}" placeholder="Correct answer">
       </div>
-      ${optionsSection}${countSection}${completionSection}${answerRuleSection}${graphicSection}${tableSection}${groupIdSection}${instructionsSection}${paraRefSection}
+      ${noteBlocksSection}${optionsSection}${countSection}${completionSection}${answerRuleSection}${graphicSection}${tableSection}${groupIdSection}${instructionsSection}${paraRefSection}
     </div>`;
 }
 
@@ -3339,6 +3356,11 @@ function _collectReadingData() {
       if (type === 'completion' && rawContent) {
         try { content = JSON.parse(rawContent); } catch(e) { /* leave null */ }
       }
+      let noteBlocks = undefined;
+      if (type === 'note_completion') {
+        const nbRaw = _val(`rd-noteblocks-${pi}-${qi}`);
+        if (nbRaw) { try { noteBlocks = JSON.parse(nbRaw); } catch(e) { /* leave undefined */ } }
+      }
       const answer = type === 'multi'
         ? rawAns.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
         : rawAns.trim();
@@ -3349,6 +3371,7 @@ function _collectReadingData() {
         ...(options.length      ? { options }      : {}),
         ...(type === 'multi'    ? { count }         : {}),
         ...(content             ? { content }       : {}),
+        ...(noteBlocks          ? { noteBlocks }    : {}),
         ...(answerRule          ? { answerRule }    : {}),
         ...(groupId             ? { groupId }       : {}),
         ...(groupImage          ? { groupImage }    : {}),
