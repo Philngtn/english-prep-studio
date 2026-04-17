@@ -2536,6 +2536,193 @@ function adminSaveListening() {
 }
 
 /* ==============================================================
+   READING — JSON / PREVIEW HELPERS
+   ============================================================== */
+
+/* Convert flat reading questions back to the group JSON format for export / live editor */
+function _rdFlatToGroups(questions) {
+  const typeNameMap = {
+    mcq: 'multiple_choice', multi: 'multiple_select',
+    tfng: 'true_false_not_given', ynng: 'yes_no_not_given',
+    matching_headings: 'matching_headings', matching_information: 'matching_information',
+    matching_features: 'matching_features', matching_sentence_endings: 'matching_sentence_endings',
+    sentence_completion: 'sentence_completion', summary_completion: 'summary_completion',
+    table_completion: 'table_completion', diagram_labeling: 'diagram_labeling',
+    short: 'short_answer', completion: 'completion',
+  };
+  const groups = [];
+  const seen = new Set();
+
+  questions.forEach(q => {
+    if (seen.has(String(q.id))) return;
+    seen.add(String(q.id));
+
+    const type = q.type;
+    const exportType = typeNameMap[type] || type;
+
+    if (q.groupId) {
+      const peers = questions.filter(p => p.groupId === q.groupId);
+      peers.forEach(p => seen.add(String(p.id)));
+
+      const grp = { type: exportType };
+      if (peers[0].instructions) grp.instructions  = peers[0].instructions;
+      if (peers[0].answerRule)   grp.answer_rule    = peers[0].answerRule;
+      if (peers[0].introBlocks && peers[0].introBlocks.length) grp.intro_blocks = peers[0].introBlocks;
+
+      if (type === 'table_completion' && peers[0].tableRows) {
+        grp.columns = peers[0].tableColumns || [];
+        grp.rows    = peers[0].tableRows;
+      } else if (type === 'table_completion') {
+        grp.columns   = [...new Set(peers.map(p => p.colContext).filter(Boolean))];
+        grp.questions = peers.map(p => ({
+          id: p.id, row: p.rowContext || '', col: p.colContext || '',
+          answer: p.answer ? [p.answer] : [],
+        }));
+      } else if (type === 'diagram_labeling') {
+        grp.image = peers[0].groupImage || '';
+        const hasPins = peers.some(p => p.xPct || p.yPct);
+        grp.labels = peers.map(p => {
+          const lbl = { id: p.id, answer: p.answer ? [p.answer] : [] };
+          if (hasPins) { lbl.x = p.xPct || 0; lbl.y = p.yPct || 0; }
+          else { lbl.text = p.text || ''; }
+          return lbl;
+        });
+      } else {
+        if (peers[0].options && peers[0].options.length) grp.options = peers[0].options;
+        if (peers[0].optionsHeading) grp.options_heading = peers[0].optionsHeading;
+        grp.questions = peers.map(p => {
+          const item = { id: p.id, answer: p.answer || '' };
+          if (p.text)         item.text         = p.text;
+          if (p.paragraphRef) item.paragraphRef  = p.paragraphRef;
+          return item;
+        });
+      }
+      groups.push(grp);
+    } else {
+      // Ungrouped question
+      const grp = { type: exportType };
+      if (q.instructions) grp.instructions = q.instructions;
+      if (q.count)        grp.count        = q.count;
+      if (q.options && q.options.length) grp.options = q.options;
+      if (q.answerRule)   grp.answer_rule  = q.answerRule;
+      const item = { id: q.id, answer: q.answer || '' };
+      if (q.text)         item.text         = q.text;
+      if (q.paragraphRef) item.paragraphRef  = q.paragraphRef;
+      grp.questions = [item];
+      groups.push(grp);
+    }
+  });
+  return { groups };
+}
+
+function adminCopyReadingJSON(pi) {
+  const data = _collectReadingData();
+  const qs   = (data.passages[pi] && data.passages[pi].questions) || [];
+  navigator.clipboard.writeText(JSON.stringify(_rdFlatToGroups(qs), null, 2))
+    .then(() => showToast('JSON copied to clipboard.'))
+    .catch(() => showToast('Copy failed — try Export instead.'));
+}
+
+function adminExportReadingJSON(pi) {
+  const data = _collectReadingData();
+  const p    = data.passages[pi] || {};
+  const json = { passage_id: pi + 1, title: p.title || '', groups: _rdFlatToGroups(p.questions || []).groups };
+  const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `reading_passage${pi + 1}.json`; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Passage ${pi + 1} exported.`);
+}
+
+function _rdJsonRefreshEditor(pi) {
+  if (_rdJsonApplying) return;
+  const ta = document.getElementById(`rd-json-live-${pi}`);
+  if (!ta) return;
+  const data = _collectReadingData();
+  const qs   = (data.passages[pi] && data.passages[pi].questions) || [];
+  ta.value = JSON.stringify(_rdFlatToGroups(qs), null, 2);
+}
+
+const _rdJsonDebounce = {};
+let   _rdJsonApplying = false;
+
+function _rdJsonOnInput(pi) {
+  clearTimeout(_rdJsonDebounce[pi]);
+  _rdJsonDebounce[pi] = setTimeout(() => _rdJsonApplyLive(pi), 350);
+}
+
+function _rdJsonApplyLive(pi) {
+  const ta    = document.getElementById(`rd-json-live-${pi}`);
+  const errEl = document.getElementById(`rd-json-error-${pi}`);
+  if (!ta || !errEl) return;
+  const raw = ta.value.trim();
+  if (!raw) return;
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch(e) {
+    errEl.className = 'ls-json-error'; errEl.textContent = 'JSON error: ' + e.message;
+    errEl.style.display = ''; return;
+  }
+  const passage = parsed.groups ? parsed : (parsed.passages ? (parsed.passages[0] || null) : null);
+  if (!passage) {
+    errEl.className = 'ls-json-warn'; errEl.textContent = 'Must have "groups" or "passages" at top level.';
+    errEl.style.display = ''; return;
+  }
+  const flat = _rdGroupsToFlat(passage, pi);
+  if (!flat.length) {
+    errEl.className = 'ls-json-warn'; errEl.textContent = 'Valid JSON — no questions found yet. Keep typing…';
+    errEl.style.display = ''; return;
+  }
+  errEl.style.display = 'none';
+  _rdJsonApplying = true;
+  const data = _collectReadingData();
+  data.passages[pi].questions = flat;
+  if (passage.title && !data.passages[pi].title) data.passages[pi].title = passage.title;
+  _applyReadingEditorState(data);
+  setTimeout(() => { adminSwitchRdMode(pi, 'json'); _rdJsonApplying = false; }, 0);
+}
+
+/* ── Preview renderer ─────────────────────────────────────────── */
+function _rdRenderAdminPreview(pi) {
+  const container = document.getElementById(`rd-preview-content-${pi}`);
+  if (!container) return;
+  const data = _collectReadingData();
+  const qs   = (data.passages[pi] && data.passages[pi].questions) || [];
+  if (!qs.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-style:italic;">No questions yet.</p>';
+    return;
+  }
+  const prevQs  = appState.test ? appState.test.flatQuestions : [];
+  const prevAns = appState.test ? appState.test.answers : {};
+  const prevFlags = appState.test ? appState.test.flags : new Set();
+  if (!appState.test) appState.test = {};
+  appState.test.flatQuestions = qs;
+  appState.test.answers       = {};
+  appState.test.flags         = new Set();
+  container.innerHTML = typeof _rdRenderQuestionsPane === 'function'
+    ? _rdRenderQuestionsPane(qs, 0)
+    : '<p style="color:var(--text-muted);">Preview unavailable.</p>';
+  appState.test.flatQuestions = prevQs;
+  appState.test.answers       = prevAns;
+  appState.test.flags         = prevFlags;
+}
+
+/* ── Mode switch (Edit / Preview / JSON) ──────────────────────── */
+function adminSwitchRdMode(pi, mode) {
+  const editPane    = document.getElementById(`rd-edit-${pi}`);
+  const previewPane = document.getElementById(`rd-preview-${pi}`);
+  const jsonPane    = document.getElementById(`rd-json-pane-${pi}`);
+  const tabs        = document.querySelectorAll(`#rd-passage-${pi} .ls-mode-tab`);
+  if (!editPane) return;
+  editPane.style.display    = mode === 'edit'    ? '' : 'none';
+  if (previewPane) previewPane.style.display = mode === 'preview' ? '' : 'none';
+  if (jsonPane)    jsonPane.style.display    = mode === 'json'    ? '' : 'none';
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  if (mode === 'preview') _rdRenderAdminPreview(pi);
+  if (mode === 'json')    _rdJsonRefreshEditor(pi);
+}
+
+/* ==============================================================
    READING EDITOR
    ============================================================== */
 function _buildReadingEditor(data) {
@@ -2563,6 +2750,8 @@ function _buildReadingEditor(data) {
       </div>
       <div class="admin-field-row">
         <label class="admin-label">Questions (${p.questions.length})</label>
+
+        <!-- Import JSON panel (collapsible) -->
         <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
           <button class="btn btn-sm btn-outline"
             onclick="var el=document.getElementById('rd-import-${pi}');el.style.display=el.style.display==='none'?'block':'none'">
@@ -2584,11 +2773,42 @@ function _buildReadingEditor(data) {
             </div>
           </details>
         </div>
-        <div id="rd-qs-${pi}">
-          ${p.questions.map((q, qi) => _buildReadingQuestionRow(pi, qi, q)).join('')}
+
+        <!-- Edit / Preview / JSON tabs -->
+        <div class="ls-editor-mode-tabs">
+          <button class="ls-mode-tab active" data-mode="edit"    onclick="adminSwitchRdMode(${pi},'edit')">&#9998; Edit</button>
+          <button class="ls-mode-tab"        data-mode="preview" onclick="adminSwitchRdMode(${pi},'preview')">&#128065; Preview</button>
+          <button class="ls-mode-tab"        data-mode="json"    onclick="adminSwitchRdMode(${pi},'json')">&#123;&#125; JSON</button>
         </div>
-        <button class="btn btn-sm btn-outline admin-add-btn"
-          onclick="adminAddReadingQ(${pi})">+ Add Question</button>
+
+        <!-- EDIT PANE -->
+        <div id="rd-edit-${pi}">
+          <div id="rd-qs-${pi}">
+            ${p.questions.map((q, qi) => _buildReadingQuestionRow(pi, qi, q)).join('')}
+          </div>
+          <button class="btn btn-sm btn-outline admin-add-btn"
+            onclick="adminAddReadingQ(${pi})">+ Add Question</button>
+        </div>
+
+        <!-- PREVIEW PANE -->
+        <div id="rd-preview-${pi}" style="display:none">
+          <div class="ls-admin-preview-wrap" id="rd-preview-content-${pi}">
+            <p style="color:var(--text-muted);font-style:italic;">Switch to Preview to see student view.</p>
+          </div>
+        </div>
+
+        <!-- JSON PANE -->
+        <div id="rd-json-pane-${pi}" style="display:none">
+          <div id="rd-json-error-${pi}" class="ls-json-error" style="display:none"></div>
+          <textarea id="rd-json-live-${pi}" class="admin-textarea ls-json-textarea"
+            rows="16" spellcheck="false"
+            oninput="_rdJsonOnInput(${pi})"
+            placeholder='{"groups":[{"type":"true_false_not_given","questions":[...]}]}'></textarea>
+          <div class="ls-json-pane-actions">
+            <button class="btn btn-sm btn-outline" onclick="adminCopyReadingJSON(${pi})">&#128203; Copy JSON</button>
+            <button class="btn btn-sm btn-primary" onclick="adminExportReadingJSON(${pi})">&#8675; Export .json</button>
+          </div>
+        </div>
       </div>
     </div>`
   ).join('');
