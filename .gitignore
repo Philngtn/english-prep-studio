@@ -30,3 +30,4 @@ CLAUDE.md
 .env.*.local
 *.secret
 credentials.*
+node_modules
