@@ -936,7 +936,8 @@ QUESTION TYPES
    }
 
 5. table_completion — rich format (preferred)
-   Each cell is an array of segments: {"t":"text","content":"..."} or {"t":"blank","id":N,"answer":["word"],"start":S}
+   Each cell is an array of segments: {"t":"text","content":"..."}, {"t":"blank","id":N,"answer":["word"],"start":S}, or {"t":"newline"} (line break between sentences).
+   If a cell contains multiple sentences on separate lines, output them as separate text/blank segments with {"t":"newline"} between them — do NOT merge into one string.
    Cells with no blank use a single text segment. "columns" drives the header row.
    { "type": "table_completion",
      "columns": ["Subject", "Recommended Page Design"],
@@ -1097,7 +1098,7 @@ FOR summary_completion → PREFERRED: give each question a "text" field containi
 FOR multiple_choice two answers → add "multi": true, "count": 2 on the group.
 FOR matching → "question" is the main question text (e.g. "Which event... took place in each year?"); "instruction" is the secondary line (e.g. "Choose SIX answers... write the correct letter, A–H, next to Questions"); "options" is the shared A–H list (format: "A. description"); "text" on each question is the label/year being matched; add "options_heading" for the bold title above the list.
 FOR diagram_matching → TWO variants. (A) DEFAULT (omit "match_type"): each question auto-detects its style — if "text" contains "________" (8 underscores) the blank is embedded inline in that sentence; otherwise "text" is treated as a short label and a blank appears beside it. BOTH styles can be mixed freely in the same group. Use this for any diagram/map/plan/process labelling. (B) "match_type":"select": student picks a letter from a dropdown; also provide "options_range" (e.g. "A-J"). Always set "question" to the goal sentence, "instruction" to the answering rule, "answer_rule" to the short constraint. "image" is a full URL; renders LEFT with questions RIGHT. Do NOT use map_labeling, diagram_labeling, or plan_labeling.
-FOR table_completion → PREFERRED: use the rich "rows" format where each cell is an array of segments: {"t":"text","content":"..."} for plain text or {"t":"blank","id":N,"answer":["word"],"start":S} for a numbered blank. Multiple blanks per cell are supported. "columns" is the header row. LEGACY: "questions" with "row"/"col" per blank is still supported but cannot express multiple blanks in one cell or text around the blank.
+FOR table_completion → PREFERRED: use the rich "rows" format where each cell is an array of segments: {"t":"text","content":"..."} for plain text, {"t":"blank","id":N,"answer":["word"],"start":S} for a numbered blank, or {"t":"newline"} for a line break between sentences. If a cell contains multiple sentences on different lines, represent them as separate segments with {"t":"newline"} between them — do NOT merge into one string. Multiple blanks per cell are supported. "columns" is the header row. LEGACY: "questions" with "row"/"col" per blank is still supported but cannot express multiple blanks in one cell or text around the blank.
 
 TRANSCRIPT:
 [PASTE TRANSCRIPT HERE]
@@ -1311,7 +1312,8 @@ ALL MATCHING TYPES — rendered as:
 
 12. table_completion
     PREFERRED: rich format using "rows" → "cells" → segments array.
-      Each cell is an array of segments: {"t":"text","content":"..."} or {"t":"blank","id":N,"answer":["word"]}.
+      Each cell is an array of segments: {"t":"text","content":"..."}, {"t":"blank","id":N,"answer":["word"]}, or {"t":"newline"} (line break between sentences in the same cell).
+      If a cell has multiple sentences on separate lines, output them as separate segments with {"t":"newline"} between — do NOT merge into one string.
       Multiple blanks per cell are supported. "columns" drives the header row.
     LEGACY: "questions" with "row"/"col" per blank (one blank per cell only).
     groupId is auto-assigned — you do NOT need to add it manually.

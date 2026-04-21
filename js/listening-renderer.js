@@ -240,6 +240,7 @@ function lsRenderTableGroup(peers, rangeLabel) {
       `<tr>${(row.cells || []).map(cell => {
         const segHtml = (cell || []).map(seg => {
           if (seg.t === 'text') return escHtml(seg.content || '');
+          if (seg.t === 'newline') return '<br>';
           if (seg.t === 'blank') {
             const p = peerByQNum[String(seg.id)];
             if (!p) return `<span class="ls-token-blank-wrap"><span class="ls-token-blank-num">${seg.id}</span><input type="text" class="ls-token-blank-input" placeholder="(${seg.id})"></span>`;
